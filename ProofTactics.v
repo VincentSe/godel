@@ -1241,7 +1241,7 @@ Lemma ProgressiveSubstTruncated : forall terms1 terms2 numSubst,
 Proof.
   intros. unfold ProgressiveSubst.
   rewrite <- (LengthRangeNat (LengthNat terms1) 0) at 2.
-  apply MapNatTruncated. rewrite LengthRangeNat. apply RangeNatTruncated.
+  rewrite MapNatTruncated. rewrite LengthRangeNat. apply RangeNatTruncated.
 Qed.
 
 Lemma ProgressiveSubstInit : forall terms1 terms2,
@@ -1250,8 +1250,8 @@ Lemma ProgressiveSubstInit : forall terms1 terms2,
 Proof.
   intros. apply TruncatedEqNat.
   apply ProgressiveSubstLength.
-  rewrite ProgressiveSubstLength. apply ProgressiveSubstTruncated.
-  exact H.
+  rewrite ProgressiveSubstLength. rewrite ProgressiveSubstTruncated.
+  symmetry. exact H.
   intros k H0. rewrite ProgressiveSubstLength in H0.
   unfold ProgressiveSubst. rewrite CoordMapNat, CoordRangeNat.
   reflexivity. exact H0. rewrite LengthRangeNat. exact H0.
@@ -1265,8 +1265,8 @@ Lemma ProgressiveSubstComplete : forall terms1 terms2 numSubst,
 Proof.
   intros. apply TruncatedEqNat.
   rewrite ProgressiveSubstLength. exact H0.
-  rewrite ProgressiveSubstLength. apply ProgressiveSubstTruncated.
-  exact H1.
+  rewrite ProgressiveSubstLength. rewrite ProgressiveSubstTruncated.
+  symmetry. exact H1.
   intros k H2. rewrite ProgressiveSubstLength in H2.
   unfold ProgressiveSubst. rewrite CoordMapNat, CoordRangeNat.
   simpl. destruct (le_lt_dec numSubst k). 2: reflexivity.
@@ -2428,10 +2428,10 @@ Proof.
       apply LeqElim_vars_op.
       rewrite SubstTermsLength, SubstTermsLength. reflexivity.
       rewrite SubstTermsLength, lenTerms. apply le_n_S, le_0_n.
-      rewrite SubstTermsLength.
-      apply MapNatTruncated. rewrite lenTerms. exact termsTrunc.
-      rewrite SubstTermsLength.
-      apply MapNatTruncated. rewrite lenTerms. exact termsTrunc.
+      rewrite SubstTermsLength. unfold SubstTerms.
+      rewrite MapNatTruncated. rewrite lenTerms. exact termsTrunc.
+      rewrite SubstTermsLength. unfold SubstTerms.
+      rewrite MapNatTruncated. rewrite lenTerms. exact termsTrunc.
       intros k H. rewrite SubstTermsLength in H.
       rewrite SubstTermsCoord. apply IsSubstTermLterm. apply IHterms.
       rewrite <- lenTerms. exact H. apply IsLterm_var. exact H.
@@ -2494,9 +2494,9 @@ Proof.
     + apply (LimpliesTrans _ _ (Lequiv (Lrel r (SubstTerms (Lvar x) z terms))
                                        (Lrel r (SubstTerms (Lvar y) z terms)))).
       apply H1. apply le_n_S, le_0_n.
-      rewrite <- lenTerms. apply MapNatTruncated.
+      rewrite <- lenTerms. unfold SubstTerms. rewrite MapNatTruncated.
       rewrite lenTerms. exact H0.
-      rewrite <- lenTerms. apply MapNatTruncated.
+      rewrite <- lenTerms. unfold SubstTerms. rewrite MapNatTruncated.
       rewrite lenTerms. exact H0.
       intros k H2. rewrite SubstTermsCoord.
       apply IsSubstTermLterm. apply H. exact H2. apply IsLterm_var.
@@ -2506,7 +2506,7 @@ Proof.
       rewrite lenTerms. exact H2.
       assert (IsLproposition (Lrel r (SubstTerms (Lvar x) z terms)) = true).
       { apply IsLproposition_rel. split.
-        rewrite SubstTermsLength. apply MapNatTruncated.
+        rewrite SubstTermsLength. unfold SubstTerms. rewrite MapNatTruncated.
         rewrite lenTerms. exact H0. intros.
         rewrite SubstTermsCoord.
         apply IsSubstTermLterm. apply H.
@@ -2515,7 +2515,7 @@ Proof.
         rewrite SubstTermsLength in H2. exact H2. }
       assert (IsLproposition (Lrel r (SubstTerms (Lvar y) z terms)) = true).
       { apply IsLproposition_rel. split.
-        rewrite SubstTermsLength. apply MapNatTruncated.
+        rewrite SubstTermsLength. unfold SubstTerms. rewrite MapNatTruncated.
         rewrite lenTerms. exact H0. intros.
         rewrite SubstTermsCoord.
         apply IsSubstTermLterm. apply H.

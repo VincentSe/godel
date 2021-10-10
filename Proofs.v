@@ -52,7 +52,7 @@ Definition IsGeneralization (prop proof : nat) : bool :=
   && FindNat proof (CoordNat prop 2) (LengthNat proof).
 
 (* Search proof for an implication ending in prop, and then search proof again
-   for the hypothesis of that implication. *)
+   for the hypothesis of that implication. Tail recursive. *)
 Fixpoint IsModusPonensLoop (prop proof last : nat) : bool :=
   match last with
   | 0 => false
@@ -105,56 +105,100 @@ Proof.
       apply H0. apply Nat.eqb_eq, H0. apply H0.
 Qed.
 
+Lemma DoubleParamDecr : forall fg i j,
+    0 < LengthNat (diagY fg)
+    -> diagMerge (CoordNat (diagX fg) i) (CoordNat (diagY fg) j) < fg.
+Proof.
+  intros.
+  rewrite <- (diagSplitMergeId fg) at 3.
+  apply diagMergeIncrLt. apply CoordLe.
+  apply CoordLower. apply LengthPositive, H.
+Qed. 
+
 (* Precondition: there exists a term t such as g = Subst t v f.
    Compute that term t. *)
-Fixpoint FindSubstTermTermLoop (v t u i : nat) (rec : nat -> nat -> nat) : nat :=
+Fixpoint FindSubstTermTermLoop (v tu i : nat)
+         (rec : forall y : nat, y < tu -> nat) : nat :=
   match i with
   | 0 => 0
   | 1 => 0
   | 2 => 0
-  | S k => if VarOccursInTerm v (CoordNat t k)
-          then rec k (CoordNat u k)
-          else FindSubstTermTermLoop v t u k rec
+  | S k => let t := diagX tu in
+          let u := diagY tu in
+          match le_lt_dec (LengthNat u) 0 with
+          | left _ => 0
+          | right l =>
+          if VarOccursInTerm v (CoordNat t k)
+          then rec (diagMerge (CoordNat t k) (CoordNat u k))
+                   (DoubleParamDecr tu _ _ l)
+          else FindSubstTermTermLoop v tu k rec
+          end
   end.
-Definition FindSubstTermTermRec (v f : nat) (rec : nat -> nat -> nat) (g : nat) : nat :=
-  match CoordNat f 0 with
-  | LvarHead => if Nat.eqb (CoordNat f 1) v then g else 0
-  | LopHead => if (Nat.eqb (CoordNat g 0) LopHead
-                  && Nat.eqb (CoordNat f 1) (CoordNat g 1)
-                  && Nat.eqb (LengthNat f) (LengthNat g))%bool then
-                FindSubstTermTermLoop v f g (LengthNat f) rec
+Definition FindSubstTermTermRec (v tu : nat) (rec : forall y : nat, y < tu -> nat) : nat :=
+  let t := diagX tu in
+  let u := diagY tu in
+  match CoordNat t 0 with
+  | LvarHead => if Nat.eqb (CoordNat t 1) v then u else 0
+  | LopHead => if (Nat.eqb (CoordNat u 0) LopHead
+                  && Nat.eqb (CoordNat t 1) (CoordNat u 1)
+                  && Nat.eqb (LengthNat t) (LengthNat u))%bool then
+                FindSubstTermTermLoop v tu (LengthNat t) rec
               else 0
   | _ => 0
   end.
-Definition FindSubstTermTerm (v : nat) : nat -> nat -> nat
-  := TreeFoldNat (FindSubstTermTermRec v) (fun _ => 0).
+Definition FindSubstTermTerm (v t u : nat) : nat
+  := Fix lt_wf (fun _ => nat) (FindSubstTermTermRec v) (diagMerge t u).
+
+Lemma FindSubstTermTerm_step : forall v t u,
+    FindSubstTermTerm v t u
+    = FindSubstTermTermRec v (diagMerge t u)
+                           (fun (y : nat) (_ : y < diagMerge t u) =>
+                              Fix lt_wf (fun _ => nat) (FindSubstTermTermRec v) y).
+Proof.
+  intros.
+  unfold FindSubstTermTerm.
+  rewrite Fix_eq. reflexivity.
+  intros. unfold FindSubstTermTermRec.
+  replace (FindSubstTermTermLoop v x (LengthNat (diagX x)) f)
+    with (FindSubstTermTermLoop v x (LengthNat (diagX x)) g).
+  reflexivity.
+  generalize (LengthNat (diagX x)) as n.
+  induction n. reflexivity.
+  simpl. destruct n. reflexivity.
+  destruct n. reflexivity.
+  destruct (le_lt_dec (LengthNat (diagY x)) 0). reflexivity.
+  destruct (VarOccursInTerm v (CoordNat (diagX x) (S (S n)))).
+  rewrite H. reflexivity. rewrite IHn. reflexivity.
+Qed.
 
 Lemma FindSubstTermTerm_var : forall v k u,
     FindSubstTermTerm v (Lvar k) u = if Nat.eqb k v then u else 0.
 Proof.
-  intros. unfold FindSubstTermTerm, TreeFoldNat.
-  unfold Fix.
-  destruct (lt_wf (Lvar k)). simpl.
-  unfold TreeFoldNatRec.
-  destruct (le_lt_dec (LengthNat (Lvar k)) 0).
-  rewrite LengthLvar in l. inversion l.
-  unfold FindSubstTermTermRec.
+  intros.
+  rewrite FindSubstTermTerm_step.
+  unfold FindSubstTermTermRec; rewrite diagXMergeId, diagYMergeId.
   unfold Lvar at 1. rewrite CoordConsHeadNat.
-  unfold Lvar. rewrite CoordConsTailNat, CoordConsHeadNat. reflexivity.
+  unfold Lvar.
+  rewrite CoordConsTailNat, CoordConsHeadNat. reflexivity.
 Qed.
 
-Lemma FindSubstTermTermLoop_ext : forall (i v f g : nat) (rec1 rec2 : nat -> nat -> nat),
-    (forall n k, n < i -> rec1 n k = rec2 n k)
-    -> FindSubstTermTermLoop v f g i rec1 = FindSubstTermTermLoop v f g i rec2.
+Lemma FindSubstTermTerm_zero : forall v t, FindSubstTermTerm v t 0 = 0.
 Proof.
-  induction i.
-  - reflexivity.
-  - intros. simpl.
-    destruct i. reflexivity. destruct i. reflexivity.
-    rewrite H. 2: apply Nat.le_refl.
-    rewrite (IHi _ _ _ rec1 rec2).
-    reflexivity. intros.
-    apply H. apply le_S, H0.
+  intros v t.
+  rewrite FindSubstTermTerm_step.
+  unfold FindSubstTermTermRec.
+  rewrite diagXMergeId, diagYMergeId.
+  destruct (CoordNat t 0). reflexivity.
+  destruct n. reflexivity.
+  destruct n. reflexivity.
+  destruct n. reflexivity.
+  destruct n. reflexivity.
+  destruct n. reflexivity.
+  destruct n. reflexivity.
+  destruct n. reflexivity.
+  destruct n. reflexivity.
+  destruct n. 2: reflexivity.
+  destruct (CoordNat t 1 =? v); reflexivity.
 Qed.
 
 Lemma FindSubstTermTermLoop_true : forall i j v t u,
@@ -163,8 +207,9 @@ Lemma FindSubstTermTermLoop_true : forall i j v t u,
     -> { k:nat | k < pred (pred i)
               /\ VarOccursInTerm v (CoordNat t (S (S k))) = true
               /\ FindSubstTermTermLoop
-                  v t u i
-                  (fun y a : nat => FindSubstTermTerm v (CoordNat t y) a)
+                  v (diagMerge t u) i
+                  (fun (y : nat) (_ : y < diagMerge t u) =>
+                     Fix lt_wf (fun _ => nat) (FindSubstTermTermRec v) y)
                 = FindSubstTermTerm v (CoordNat t (S (S k))) (CoordNat u (S (S k))) }.
 Proof.
   induction i.
@@ -175,52 +220,29 @@ Proof.
     destruct (VarOccursInTerm v (CoordNat t (S (S i)))) eqn:des.
     + exists i. split.
       apply Nat.le_refl.
-      split. exact des. reflexivity.
+      split. exact des.
+      rewrite diagXMergeId, diagYMergeId.
+      rewrite des.
+      destruct (le_lt_dec (LengthNat u) 0).
+      2: reflexivity.
+      rewrite (CoordNatAboveLength _ u).
+      symmetry. apply FindSubstTermTerm_zero.
+      inversion l. rewrite H2. apply le_0_n.
     + simpl in H.
-      destruct (IHi j v t u). simpl.
+      destruct (IHi j v t u) as [x [a b]]. simpl.
       apply Nat.le_succ_r in H.
       destruct H. exact H. exfalso. inversion H.
       rewrite H2 in H0.
       rewrite H0 in des. discriminate des. exact H0.
       exists x. split. apply le_S, a.
-      split. apply a. apply a.
-Qed.
-
-Lemma TreeFoldNatRec_ext : forall (v t k : nat) (acc1 acc2 : Acc lt t),
-  Fix_F (fun _ : nat => nat -> nat)
-    (TreeFoldNatRec (FindSubstTermTermRec v) (fun _ : nat => 0))
-    acc1 k =
-  Fix_F (fun _ : nat => nat -> nat)
-    (TreeFoldNatRec (FindSubstTermTermRec v) (fun _ : nat => 0))
-    acc2 k.
-Proof.
-  intros v.
-  apply (Fix lt_wf (fun t =>  forall k (acc1 acc2 : Acc lt t),
-  Fix_F (fun _ : nat => nat -> nat)
-    (TreeFoldNatRec (FindSubstTermTermRec v) (fun _ : nat => 0)) acc1 k =
-  Fix_F (fun _ : nat => nat -> nat)
-    (TreeFoldNatRec (FindSubstTermTermRec v) (fun _ : nat => 0)) acc2 k)).
-  intros t IHt k acc1 acc2.
-  rewrite <- Fix_F_eq.
-  rewrite <- Fix_F_eq.
-  unfold TreeFoldNatRec at 1 3.
-  destruct (le_lt_dec (LengthNat t) 0). reflexivity.
-  unfold FindSubstTermTermRec at 1 3.
-  destruct (CoordNat t 0). reflexivity.
-  destruct n. reflexivity.
-  destruct n. reflexivity.
-  destruct n. reflexivity.
-  destruct n. reflexivity.
-  destruct n. reflexivity.
-  destruct n. reflexivity.
-  destruct n. reflexivity.
-  destruct n. 2: reflexivity.
-  destruct  ((CoordNat k 0 =? 8) && (CoordNat t 1 =? CoordNat k 1) &&
-                                 (LengthNat t =? LengthNat k))%bool.
-  2: reflexivity.
-  apply FindSubstTermTermLoop_ext.
-  intros. apply IHt.
-  apply (CoordLower _ _ (LengthPositive _ l)).
+      split. apply b. 
+      rewrite diagXMergeId, diagYMergeId.
+      destruct (le_lt_dec (LengthNat u) 0).
+      rewrite (CoordNatAboveLength _ u).
+      symmetry. apply FindSubstTermTerm_zero.
+      inversion l. rewrite H2. apply le_0_n.
+      destruct (VarOccursInTerm v (CoordNat t (S (S i)))).
+      discriminate des. apply b.
 Qed.
 
 Lemma FindSubstTermTerm_op : forall v o args u,
@@ -228,50 +250,94 @@ Lemma FindSubstTermTerm_op : forall v o args u,
     = if (Nat.eqb (CoordNat u 0) LopHead
                   && Nat.eqb o (CoordNat u 1)
                   && Nat.eqb (2 + LengthNat args) (LengthNat u))%bool then
-        FindSubstTermTermLoop v (Lop o args) u (2 + LengthNat args)
-                              (fun (y : nat) k => FindSubstTermTerm v (CoordNat (Lop o args) y) k)
+        FindSubstTermTermLoop v (diagMerge (Lop o args) u)
+                              (2 + LengthNat args)
+                              (fun (y : nat) (_ : y < diagMerge _ u) =>
+                     Fix lt_wf (fun _ => nat) (FindSubstTermTermRec v) y) 
       else 0.
 Proof.
-  intros. unfold FindSubstTermTerm at 1.
-  unfold TreeFoldNat.
-  unfold Fix. rewrite <- Fix_F_eq.
-  unfold TreeFoldNatRec at 1.
-  destruct (le_lt_dec (LengthNat (Lop o args)) 0).
-  rewrite LengthLop in l. inversion l.
-  unfold FindSubstTermTermRec at 1.
-  unfold Lop at 1. rewrite CoordConsHeadNat.
-  rewrite LengthLop.
-  unfold Lop at 1.
-  rewrite CoordConsTailNat, CoordConsHeadNat.
-  destruct ((CoordNat u 0 =? 8) && (o =? CoordNat u 1) &&
-                                (2 + LengthNat args =? LengthNat u))%bool.
-  2: reflexivity.
-  apply FindSubstTermTermLoop_ext.
-  intros n k H.
-  apply TreeFoldNatRec_ext.
+  intros. rewrite FindSubstTermTerm_step.
+  unfold FindSubstTermTermRec; rewrite diagXMergeId, diagYMergeId.
+  unfold Lop at 1; rewrite CoordConsHeadNat.
+  unfold Lop at 1; rewrite CoordConsTailNat, CoordConsHeadNat.
+  rewrite LengthLop. reflexivity.
 Qed.
+
+(*
+Lemma FindSubstTermTerm_varoccur : forall v t u,
+    match FindSubstTermTerm v t u with
+    | 0 => True
+    | S _ => VarOccursInTerm v t = true
+    end.
+Proof.
+  intro v.
+  apply (Fix lt_wf (fun t => forall u : nat,
+  match FindSubstTermTerm v t u with
+  | 0 => True
+  | S _ => VarOccursInTerm v t = true
+  end)).
+  intros t IHt u.
+  rewrite FindSubstTermTerm_step. unfold FindSubstTermTermRec.
+  rewrite diagXMergeId, diagYMergeId.
+  destruct (CoordNat t 0) eqn:headT. trivial.
+  destruct n. trivial.
+  destruct n. trivial.
+  destruct n. trivial.
+  destruct n. trivial.
+  destruct n. trivial.
+  destruct n. trivial.
+  destruct n. trivial.
+  destruct n.
+  rewrite headT.
+  shelve.
+  destruct n. 2: trivial.
+  destruct (CoordNat t 1 =? v) eqn:des. 2: trivial.
+  destruct u. trivial.
+  unfold VarOccursInTerm.
+  rewrite SubstTerm_step.
+  unfold TreeFoldNatRec.
+  destruct (le_lt_dec (LengthNat t) 0).
+  exfalso. rewrite CoordNatAboveLength in headT.
+  discriminate headT. exact l.
+  unfold SubstTermRec. rewrite headT.
+  rewrite des. simpl.
+  destruct t. 
+  exfalso. discriminate headT.
+  reflexivity.
+Qed.
+*)
 
 Fixpoint FindSubstTermLoop (v f g l : nat) : nat :=
   match l with
   | 0 => 0
-  | S k => if VarOccursInTerm v (CoordNat f 0)
-          then FindSubstTermTerm v (CoordNat f 0) (CoordNat g 0)
-          else FindSubstTermLoop v (TailNat f) (TailNat g) k
+  | S k => if VarOccursInTerm v (CoordNat f k)
+          then FindSubstTermTerm v (CoordNat f k) (CoordNat g k)
+          else FindSubstTermLoop v f g k
   end.
 
-Definition FindSubstTermRec (v f : nat) (rec : nat -> nat -> nat) (g : nat) : nat :=
+Definition FindSubstTermRec (v fg : nat) (rec : forall y : nat, y < fg -> nat) : nat :=
+  let f := diagX fg in
+  let g := diagY fg in
+  match le_lt_dec (LengthNat g) 0 with
+  | left _ => 0
+  | right l =>
   if Nat.eqb (CoordNat f 0) (CoordNat g 0) then
   match CoordNat f 0 with
-  | LnotHead => rec 1 (CoordNat g 1)
+  | LnotHead => rec (diagMerge (CoordNat f 1) (CoordNat g 1))
+                   (DoubleParamDecr fg 1 1 l)
   | LimpliesHead
   | LorHead
   | LandHead => if VarOccursFreeInFormula v (CoordNat f 1)
-               then rec 1 (CoordNat g 1) else rec 2 (CoordNat g 2)
+               then rec (diagMerge (CoordNat f 1) (CoordNat g 1))
+                        (DoubleParamDecr fg 1 1 l) 
+               else rec (diagMerge (CoordNat f 2) (CoordNat g 2))
+                        (DoubleParamDecr fg _ _ l)
   | LforallHead
   | LexistsHead => if (Nat.eqb (CoordNat f 1) (CoordNat g 1)
                       && negb (Nat.eqb (CoordNat f 1) v))%bool then
                     (* If Xv is quantified, there will be no substitutions for it *)
-                    rec 2 (CoordNat g 2)
+                    rec (diagMerge (CoordNat f 2) (CoordNat g 2))
+                        (DoubleParamDecr fg _ _ l) 
                   else 0
   | LrelHead => if (Nat.eqb (CoordNat f 1) (CoordNat g 1)
                    && Nat.eqb (LengthNat f) (LengthNat g))%bool then
@@ -280,21 +346,22 @@ Definition FindSubstTermRec (v f : nat) (rec : nat -> nat -> nat) (g : nat) : na
                else 0
   | _ => 0
   end
-  else 0.
-Definition FindSubstTerm (v : nat) : nat -> nat -> nat
-  := TreeFoldNat (FindSubstTermRec v) (fun _ => 0).
+  else 0
+  end.
+Definition FindSubstTerm (v f g : nat) : nat
+  := Fix lt_wf (fun _ => nat) (FindSubstTermRec v) (diagMerge f g).
 
-Lemma FindSubstTerm_step : forall v f,
-    FindSubstTerm v f
-    = TreeFoldNatRec (FindSubstTermRec v) (fun _ => 0) f
-                     (fun (y : nat) _ => FindSubstTerm v y).
+Lemma FindSubstTerm_step : forall v f g,
+    FindSubstTerm v f g
+    = FindSubstTermRec v (diagMerge f g)
+                       (fun (y : nat) (_ : y < diagMerge f g) =>
+                          Fix lt_wf (fun _ => nat) (FindSubstTermRec v) y).
 Proof.
   intros.
-  unfold FindSubstTerm, TreeFoldNat.
-  rewrite Fix_eq.
-  reflexivity.
-  intros. unfold TreeFoldNatRec.
-  destruct (le_lt_dec (LengthNat x) 0). reflexivity.
+  unfold FindSubstTerm.
+  rewrite Fix_eq. reflexivity.
+  intros. unfold FindSubstTermRec.
+  destruct (le_lt_dec (LengthNat (diagY x)) 0). reflexivity.
   unfold FindSubstTermRec.
   simpl. rewrite H, H. reflexivity.
 Qed.
@@ -310,16 +377,16 @@ Proof.
   induction l.
   - intros. exfalso. inversion H.
   - intros. simpl.
-    destruct (VarOccursInTerm v (CoordNat f 0)) eqn:des.
-    + exists 0. split. apply le_n_S, le_0_n. split. exact des. reflexivity.
-    + destruct j. exfalso. rewrite H0 in des. discriminate.
-      destruct (IHl j v (TailNat f) (TailNat g)) as [k H1].
-      apply le_S_n, H.
-      rewrite CoordTailNat. exact H0.
-      exists (S k). destruct H1, H2.
-      split. apply le_n_S, H1. split.
-      rewrite <- CoordTailNat. exact H2.
-      rewrite <- CoordTailNat, <- CoordTailNat. exact H3.
+    destruct (VarOccursInTerm v (CoordNat f l)) eqn:des.
+    + exists l. split. apply Nat.le_refl.
+      split. exact des. reflexivity.
+    + assert (j < l).
+      { apply Nat.le_succ_r in H. destruct H. exact H. exfalso.
+        inversion H.
+        rewrite H2 in H0. rewrite H0 in des. discriminate des. }
+      destruct (IHl _ v f g H1 H0) as [k IHk].
+      exists k. split. apply le_S, IHk.
+      split. apply IHk. apply IHk.
 Qed.
 
 Lemma FindSubstTermTerm_true : forall t v u,
@@ -368,10 +435,12 @@ Lemma FindSubstTerm_not : forall v f g,
 Proof.
   intros. 
   rewrite FindSubstTerm_step.
-  unfold TreeFoldNatRec.
-  rewrite LengthLnot. simpl. unfold FindSubstTermRec.
-  unfold Lnot; rewrite CoordConsHeadNat, CoordConsHeadNat.
-  simpl.
+  unfold FindSubstTermRec at 1; rewrite diagXMergeId, diagYMergeId.
+  destruct (le_lt_dec (LengthNat (Lnot g)) 0).
+  exfalso. rewrite LengthLnot in l. inversion l.
+  unfold Lnot at 1 2 3.
+  rewrite CoordConsHeadNat, CoordConsHeadNat. simpl.
+  unfold Lnot.
   rewrite CoordConsTailNat, CoordConsHeadNat.
   rewrite CoordConsTailNat, CoordConsHeadNat. reflexivity.
 Qed.
@@ -383,16 +452,16 @@ Lemma FindSubstTerm_implies : forall v f g h k,
 Proof.
   intros. 
   rewrite FindSubstTerm_step.
-  unfold TreeFoldNatRec.
-  rewrite LengthLimplies. simpl. unfold FindSubstTermRec.
-  unfold Limplies; rewrite CoordConsHeadNat, CoordConsHeadNat.
-  simpl.
+  unfold FindSubstTermRec at 1; rewrite diagXMergeId, diagYMergeId.
+  destruct (le_lt_dec (LengthNat (Limplies h k)) 0).
+  exfalso. rewrite LengthLimplies in l. inversion l.
+  unfold Limplies at 1 2 3.
+  rewrite CoordConsHeadNat, CoordConsHeadNat. simpl.
+  unfold Limplies.
   rewrite CoordConsTailNat, CoordConsHeadNat.
-  rewrite CoordConsTailNat, CoordConsHeadNat.
-  rewrite CoordConsTailNat, CoordConsTailNat.
-  rewrite CoordConsHeadNat.
-  rewrite CoordConsTailNat, CoordConsTailNat.
-  rewrite CoordConsHeadNat.
+  rewrite CoordConsTailNat, CoordConsHeadNat. 
+  rewrite CoordConsTailNat, CoordConsTailNat, CoordConsHeadNat. 
+  rewrite CoordConsTailNat, CoordConsTailNat, CoordConsHeadNat. 
   reflexivity.
 Qed.
 
@@ -403,16 +472,16 @@ Lemma FindSubstTerm_or : forall v f g h k,
 Proof.
   intros. 
   rewrite FindSubstTerm_step.
-  unfold TreeFoldNatRec.
-  rewrite LengthLor. simpl. unfold FindSubstTermRec.
-  unfold Lor; rewrite CoordConsHeadNat, CoordConsHeadNat.
-  simpl.
+  unfold FindSubstTermRec at 1; rewrite diagXMergeId, diagYMergeId.
+  destruct (le_lt_dec (LengthNat (Lor h k)) 0).
+  exfalso. rewrite LengthLor in l. inversion l.
+  unfold Lor at 1 2 3.
+  rewrite CoordConsHeadNat, CoordConsHeadNat. simpl.
+  unfold Lor.
   rewrite CoordConsTailNat, CoordConsHeadNat.
-  rewrite CoordConsTailNat, CoordConsHeadNat.
-  rewrite CoordConsTailNat, CoordConsTailNat.
-  rewrite CoordConsHeadNat.
-  rewrite CoordConsTailNat, CoordConsTailNat.
-  rewrite CoordConsHeadNat.
+  rewrite CoordConsTailNat, CoordConsHeadNat. 
+  rewrite CoordConsTailNat, CoordConsTailNat, CoordConsHeadNat. 
+  rewrite CoordConsTailNat, CoordConsTailNat, CoordConsHeadNat. 
   reflexivity.
 Qed.
 
@@ -423,16 +492,16 @@ Lemma FindSubstTerm_and : forall v f g h k,
 Proof.
   intros. 
   rewrite FindSubstTerm_step.
-  unfold TreeFoldNatRec.
-  rewrite LengthLand. simpl. unfold FindSubstTermRec.
-  unfold Land; rewrite CoordConsHeadNat, CoordConsHeadNat.
-  simpl.
+  unfold FindSubstTermRec at 1; rewrite diagXMergeId, diagYMergeId.
+  destruct (le_lt_dec (LengthNat (Land h k)) 0).
+  exfalso. rewrite LengthLand in l. inversion l.
+  unfold Land at 1 2 3.
+  rewrite CoordConsHeadNat, CoordConsHeadNat. simpl.
+  unfold Land.
   rewrite CoordConsTailNat, CoordConsHeadNat.
-  rewrite CoordConsTailNat, CoordConsHeadNat.
-  rewrite CoordConsTailNat, CoordConsTailNat.
-  rewrite CoordConsHeadNat.
-  rewrite CoordConsTailNat, CoordConsTailNat.
-  rewrite CoordConsHeadNat.
+  rewrite CoordConsTailNat, CoordConsHeadNat. 
+  rewrite CoordConsTailNat, CoordConsTailNat, CoordConsHeadNat. 
+  rewrite CoordConsTailNat, CoordConsTailNat, CoordConsHeadNat. 
   reflexivity.
 Qed.
 
@@ -442,15 +511,17 @@ Lemma FindSubstTerm_forall : forall v w f g,
 Proof.
   intros. 
   rewrite FindSubstTerm_step.
-  unfold TreeFoldNatRec.
-  rewrite LengthLforall. simpl. unfold FindSubstTermRec.
-  rewrite LengthLforall.
-  rewrite CoordNat_forall_1, CoordNat_forall_2.
-  unfold Lforall; rewrite CoordConsHeadNat, CoordConsHeadNat.
-  simpl.
+  unfold FindSubstTermRec at 1; rewrite diagXMergeId, diagYMergeId.
+  destruct (le_lt_dec (LengthNat (Lforall w g)) 0).
+  exfalso. rewrite LengthLforall in l. inversion l.
+  unfold Lforall at 1 2 3.
+  rewrite CoordConsHeadNat, CoordConsHeadNat. simpl.
+  unfold Lforall.
   rewrite CoordConsTailNat, CoordConsHeadNat.
-  rewrite CoordConsTailNat, CoordConsTailNat.
-  rewrite CoordConsHeadNat, Nat.eqb_refl. simpl.
+  rewrite CoordConsTailNat, CoordConsHeadNat. 
+  rewrite CoordConsTailNat, CoordConsTailNat, CoordConsHeadNat. 
+  rewrite CoordConsTailNat, CoordConsTailNat, CoordConsHeadNat. 
+  rewrite Nat.eqb_refl. simpl.
   destruct (w =? v); reflexivity.
 Qed.
 
@@ -460,15 +531,17 @@ Lemma FindSubstTerm_exists : forall v w f g,
 Proof.
   intros. 
   rewrite FindSubstTerm_step.
-  unfold TreeFoldNatRec.
-  rewrite LengthLexists. simpl. unfold FindSubstTermRec.
-  rewrite LengthLexists.
-  rewrite CoordNat_exists_1, CoordNat_exists_2.
-  unfold Lexists; rewrite CoordConsHeadNat, CoordConsHeadNat.
-  simpl.
+  unfold FindSubstTermRec at 1; rewrite diagXMergeId, diagYMergeId.
+  destruct (le_lt_dec (LengthNat (Lexists w g)) 0).
+  exfalso. rewrite LengthLexists in l. inversion l.
+  unfold Lexists at 1 2 3.
+  rewrite CoordConsHeadNat, CoordConsHeadNat. simpl.
+  unfold Lexists.
   rewrite CoordConsTailNat, CoordConsHeadNat.
-  rewrite CoordConsTailNat, CoordConsTailNat.
-  rewrite CoordConsHeadNat, Nat.eqb_refl. simpl.
+  rewrite CoordConsTailNat, CoordConsHeadNat. 
+  rewrite CoordConsTailNat, CoordConsTailNat, CoordConsHeadNat. 
+  rewrite CoordConsTailNat, CoordConsTailNat, CoordConsHeadNat. 
+  rewrite Nat.eqb_refl. simpl.
   destruct (w =? v); reflexivity.
 Qed.
 
@@ -478,16 +551,21 @@ Lemma FindSubstTerm_rel : forall v r terms r2 terms2,
        then FindSubstTermLoop v terms terms2 (LengthNat terms)
        else 0).
 Proof.
-  intros.
+  intros. 
   rewrite FindSubstTerm_step.
-  unfold TreeFoldNatRec.
-  rewrite LengthLrel. simpl. unfold FindSubstTermRec.
-  rewrite LengthLrel, LengthLrel.
-  rewrite CoordNat_rel, CoordNat_rel.
-  unfold Lrel; rewrite CoordConsHeadNat, CoordConsHeadNat. simpl.
-  rewrite CoordConsTailNat, CoordConsTailNat.
-  rewrite CoordConsHeadNat, CoordConsHeadNat.
-  do 4 rewrite TailConsNat. 
+  unfold FindSubstTermRec at 1; rewrite diagXMergeId, diagYMergeId.
+  destruct (le_lt_dec (LengthNat (Lrel r2 terms2)) 0).
+  exfalso. rewrite LengthLrel in l. inversion l.
+  unfold Lrel at 1 2 3.
+  rewrite CoordConsHeadNat, CoordConsHeadNat. simpl.
+  unfold Lrel.
+  rewrite CoordConsTailNat, CoordConsHeadNat.
+  rewrite CoordConsTailNat, CoordConsHeadNat. 
+  rewrite TailConsNat, TailConsNat.
+  rewrite TailConsNat, TailConsNat.
+  rewrite LengthConsNat, LengthConsNat.
+  rewrite LengthConsNat, LengthConsNat.
+  simpl.
   rewrite Nat.sub_0_r. reflexivity.
 Qed.
 
@@ -558,7 +636,10 @@ Qed.
    into the absurdity (exists y, not(y = y)).
    This gathers the Lforall elimination and Lexists introduction rules. *)
 Definition IsSpecialization (prop : nat) : bool :=
-  IsLproposition prop
+  IsLproposition prop (* This prevents the substitution of t := FindSubstTerm = 0
+                         for a free variable. When there is no substitution,
+                         it is simply the erasure of the forall quantifier,
+                         which is the same as substituting the variable for itself. *) 
   && IsLimplies prop
   && ((IsLforall (CoordNat prop 1)
        && let t := FindSubstTerm (CoordNat (CoordNat prop 1) 1)
@@ -1142,6 +1223,29 @@ Definition IsInconsistent (IsAxiom : nat -> bool) : Prop :=
 
 Definition IsConsistent (IsAxiom : nat -> bool) : Prop := ~IsInconsistent IsAxiom.
 
+Lemma IsProofLoop_spec : forall IsAxiom k proof,
+    IsProofLoop IsAxiom proof k = true
+    <-> (forall i, i < k -> IsProofStep IsAxiom (CoordNat proof i)
+                                (NthTailNat proof (S i)) = true).
+Proof.
+  intros IsAxiom. induction k.
+  - simpl. split. intros. inversion H0.
+    intros. reflexivity.
+  - split.
+    + intros. simpl.
+      simpl in H.
+      specialize (IHk (TailNat proof)) as [IHk _].
+      apply andb_prop in H. destruct H.
+      destruct i. exact H.
+      specialize (IHk H1 i). 
+      rewrite CoordTailNat in IHk. apply IHk.
+      apply le_S_n, H0.
+    + intro H. simpl. apply andb_true_intro. split.
+      apply H. apply le_n_S, le_0_n.
+      apply (IHk (TailNat proof)).
+      intros i H0. apply (H (S i)). apply le_n_S, H0.
+Qed. 
+
 Lemma IsProofLoop_cons : forall IsAxiom prop proof,
     IsProofLoop IsAxiom (ConsNat prop proof) (S (LengthNat proof))
     = (IsProofStep IsAxiom prop proof
@@ -1318,7 +1422,8 @@ Lemma EvenVarsTruncated : forall l start,
 Proof. 
   intros. 
   rewrite <- (LengthRangeNat l 0) at 2.
-  apply MapNatTruncated. rewrite LengthRangeNat.
+  unfold EvenVars.
+  rewrite MapNatTruncated. rewrite LengthRangeNat.
   generalize 0 at 1.
   induction l. reflexivity. simpl. intro k.
   rewrite TailConsNat. apply IHl.

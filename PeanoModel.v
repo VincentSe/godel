@@ -471,13 +471,7 @@ Proof.
   { rewrite LengthTailNat, LengthTailNat, lenF. reflexivity. }
   unfold SubstTerms, MapNat in nooccur.
   rewrite LengthTailNat, LengthTailNat, lenF in nooccur.
-  simpl in nooccur.
-  rewrite H in nooccur. simpl in nooccur.
-  rewrite LengthTailNat, LengthConsNat in nooccur. simpl in nooccur.
-  rewrite LengthTailNat, H in nooccur. simpl in nooccur.
-  rewrite CoordConsHeadNat, TailConsNat in nooccur.
-  rewrite CoordTailNat, CoordTailNat in nooccur.
-  rewrite CoordTailNat, CoordTailNat in nooccur.
+  simpl in nooccur. 
   rewrite VarIndepTerm, VarIndepTerm. reflexivity.
   apply Bool.negb_false_iff, Nat.eqb_eq.
   rewrite <- nooccur at 2.

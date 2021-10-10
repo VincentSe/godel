@@ -3,6 +3,7 @@
     This is a work in progress, complete proofs can be found in this library
     https://github.com/coq-community/hydra-battles *)
 
+Require Import Numbers.NaryFunctions.
 Require Import ZArith.
 Require Import ZArith.Znumtheory.
 Require Import Arith.Compare_dec.
@@ -113,8 +114,7 @@ Proof.
       apply (Nat.mul_succ_div_gt i (S j)). discriminate.
 Qed.
 
-Opaque Land Limplies.
-Lemma div_repr : FunctionRepresented 2 Nat.div.
+Lemma DivisionRepresented : FunctionRepresented 2 Nat.div.
 Proof.
   assert (forall i j,
              IsLterm i = true ->
@@ -143,7 +143,7 @@ Proof.
     remember (CoordNat args 1) as j.
     apply LforallIntro.
     reduce_subst; simpl.
-    rewrite (SubstTerm_PAzero (PAnat i) 0). do 6 rewrite Subst_PAle.
+    rewrite SubstTerm_PAzero. do 6 rewrite Subst_PAle.
     reduce_subst; simpl.
     reduce_subst; simpl.
     rewrite SubstTerm_PAnat. do 4 rewrite SubstTerm_PAmult.
@@ -156,22 +156,20 @@ Proof.
       specialize (hypprop (PAnat i) (PAnat j) (IsLterm_PAnat _) (IsLterm_PAnat _)).
       rewrite IsLproposition_and in hypprop.
       apply andb_prop in hypprop. destruct hypprop.
-      rewrite SubstTerm_PAzero.
       rewrite H0.
       rewrite IsLproposition_eq, IsLterm_var, IsLterm_PAnat. reflexivity.
       intros k H.
       reduce_subst; simpl.
-      rewrite Subst_PAle, Subst_PAle, (SubstTerm_PAzero (PAnat j) 1), SubstTerm_PAnat.
+      rewrite Subst_PAle, Subst_PAle, SubstTerm_PAzero, SubstTerm_PAnat.
       rewrite SubstTerm_PAmult, SubstTerm_PAsucc, SubstTerm_PAmult.
       do 3 rewrite SubstTerm_PAnat. rewrite SubstTerm_PAsucc.
       reduce_subst; simpl.
-      apply LorElim. destruct j. rewrite SubstTerm_PAzero.
+      apply LorElim. destruct j. 
       apply LandElim1_impl.
       rewrite IsLproposition_eq, IsLterm_PAnat. apply IsLterm_PAnat.
       unfold PAzero. rewrite IsLproposition_eq, IsLterm_PAnat, IsLterm_const.
       reflexivity.
       apply (LimpliesTrans _ _ (Leq (PAnat (S j)) PAzero)).
-      rewrite SubstTerm_PAzero.
       apply LandElim2_impl.
       rewrite IsLproposition_eq, IsLterm_PAnat. apply IsLterm_const.
       rewrite IsLproposition_eq, IsLterm_PAnat. apply IsLterm_const.
@@ -188,7 +186,6 @@ Proof.
       rewrite IsLproposition_eq, IsLterm_PAnat, IsLterm_PAnat. reflexivity.
       apply NatDivDef.
     + apply LeqElimSubstVarPAnat.
-      rewrite SubstTerm_PAzero.
       apply hypprop.
       apply IsLterm_PAnat. apply IsLterm_PAnat.
       unfold PAle, PAmult, PAsucc.
@@ -200,8 +197,7 @@ Proof.
       apply Nat.div_le_upper_bound. discriminate.
       rewrite <- (Nat.mul_1_l i) at 1.
       apply Nat.mul_le_mono_nonneg_r. apply le_0_n. apply le_n_S, le_0_n.
-      rewrite (SubstTerm_PAzero (PAnat j)).
-      rewrite (SubstTerm_PAzero (PAnat (i/j))).
+      rewrite SubstTerm_PAzero.
       exact (NatDivCorrect i j).
   - apply hypprop. apply IsLterm_var. apply IsLterm_var.
   - intros. unfold PAle, PAzero, PAmult, PAsucc, Leq.
@@ -324,7 +320,7 @@ Proof.
     apply Nat.lt_le_incl, l.
 Qed.
 
-Lemma sub_repr : FunctionRepresented 2 Nat.sub.
+Lemma SubtractionRepresented : FunctionRepresented 2 Nat.sub.
 Proof.
   assert (forall i j,
              IsLterm i = true ->
@@ -351,13 +347,14 @@ Proof.
     rewrite Subst_and, Subst_or, Subst_and, Subst_or, Subst_and.
     rewrite Subst_and, Subst_eq, SubstTerm_PAzero.
     rewrite Subst_PAle, SubstTerm_var, SubstTerm_var; simpl.
-    rewrite Subst_PAle, SubstTerm_var, SubstTerm_PAnat; simpl.
+    rewrite Subst_PAle, SubstTerm_var; simpl.
     rewrite Subst_eq, SubstTerm_var, SubstTerm_PAzero; simpl.
     rewrite Subst_PAle, Subst_eq, Subst_PAle; simpl.
     rewrite SubstTerm_var, Subst_eq, SubstTerm_var; simpl.
-    rewrite SubstTerm_PAnat, SubstTerm_var, SubstTerm_PAplus; simpl.
+    rewrite SubstTerm_var, SubstTerm_PAplus; simpl.
     rewrite SubstTerm_var, SubstTerm_var; simpl.
-    rewrite SubstTerm_PAplus, SubstTerm_var, SubstTerm_var; simpl.
+    rewrite SubstTerm_PAplus, SubstTerm_var; simpl.
+    rewrite SubstTerm_PAnat.
     apply LandIntro.
     + apply PushHypothesis, LforallBounded.
       rewrite IsLproposition_implies.
@@ -394,68 +391,49 @@ Proof.
     destruct v. inversion H. reflexivity.
 Qed.
 
+Lemma PredRepresented : FunctionRepresented 1 Nat.pred.
+Proof.
+  apply (FunctionRepresented_1_ext (fun n : nat => n - 1)%nat).
+  apply ComposeRepr_21. exact SubtractionRepresented.
+  apply (proj_represented 1 0); auto.
+  apply (ConstantRepresented 1).
+  intro n. rewrite pred_of_minus. reflexivity.
+Qed.
+
 Lemma mod_repr : FunctionRepresented 2 Nat.modulo.
 Proof.
   assert (forall i j : nat, i - (i/j)*j = i mod j)%nat as moddef.
   { intros. pose proof (Nat.div_mod_eq i j) as H.
     rewrite Nat.mul_comm in H.
     symmetry in H. exact (Nat.add_sub_eq_l i ((i/j)*j) (i mod j) H). }
-  refine (FunctionRepresented_2_ext _ _ _ moddef). clear moddef.
-  apply (ComposeRepr_22 Nat.sub _ sub_repr).
-  exact (ComposeRepr_21 Nat.mul _ MultiplicationRepresented div_repr).
+  refine (FunctionRepresented_2_ext _ _ _ moddef). clear moddef. 
+  apply ComposeRepr_22.
+  exact SubtractionRepresented.
+  apply (proj_represented 2 0). auto.
+  apply ComposeRepr_22.
+  exact MultiplicationRepresented.
+  exact DivisionRepresented.
+  apply (proj_represented 2 1). auto.
 Qed.
 
 Definition godel_beta (s t i : nat) : nat := s mod ((i+1)*t+1).
 
 Lemma beta_repr : FunctionRepresented 3 godel_beta.
 Proof.
-  pose proof (IncrOutputVarRepresented _ _ mod_repr) as H; simpl in H.
-  apply (ComposeRepr_31 _ (fun s t i => (i+1)*t+1) H)%nat.
-  apply (Build_FunctionRepresented
-           3 _ (Leq (Lvar 3) (PAsucc (PAmult (PAsucc (Lvar 2)) (Lvar 1))))).
-  intro args. apply LforallIntro. simpl.
-  do 3 rewrite CoordTailNat.
-  remember (CoordNat args 0) as i.
-  remember (CoordNat args 1) as j.
-  remember (CoordNat args 2) as k.
-  rewrite Subst_eq, SubstTerm_var, Subst_eq, Subst_eq. simpl.
-  rewrite SubstTerm_var; simpl.
-  rewrite SubstTerm_var; simpl.
-  do 3 rewrite SubstTerm_PAsucc.
-  do 3 rewrite SubstTerm_PAmult.
-  do 3 rewrite SubstTerm_PAsucc.
-  rewrite SubstTerm_var; simpl.
-  rewrite SubstTerm_var; simpl.
-  rewrite SubstTerm_var; simpl.
-  rewrite SubstTerm_var; simpl.
-  rewrite SubstTerm_var; simpl.
-  rewrite SubstTerm_PAnat.
-  apply (LeqElim_rel2 _ 0). apply LeqRefl. apply IsLterm_var.
-  apply (LeqTrans _ _ (PAnat (HAstandardModelTerm (fun _ => O) (PAsucc (PAmult (PAsucc (PAnat k)) (PAnat j)))))).
-  apply ClosedTerm_normalize.
-  rewrite IsPeanoTerm_PAsucc, IsPeanoTerm_PAmult, IsPeanoTerm_PAsucc.
-  rewrite IsPeanoTerm_PAnat. apply IsPeanoTerm_PAnat.
-  intro v. unfold PAsucc, PAmult.
-  rewrite VarOccursInTerm_op1, VarOccursInTerm_op2, VarOccursInTerm_op1.
-  rewrite PAnat_closed, PAnat_closed. reflexivity.
-  rewrite HAstandardModelTerm_succ, HAstandardModelTerm_mult.
-  rewrite HAstandardModelTerm_succ, HAstandardModelTerm_PAnat.
-  rewrite HAstandardModelTerm_PAnat.
-  rewrite (Nat.add_comm k).
-  rewrite <- (Nat.add_comm 1). apply LeqRefl. apply IsLterm_PAnat.
-  unfold PAsucc, PAmult.
-  rewrite IsLproposition_eq, IsLterm_var, IsLterm_op1, IsLterm_op2, IsLterm_op1.
-  rewrite IsLterm_var, IsLterm_var. reflexivity.
-  intros v H0. unfold Leq.
-  rewrite VarOccursFreeInFormula_rel2, VarOccursInTerm_var.
-  unfold PAsucc, PAmult.
-  rewrite VarOccursInTerm_op1, VarOccursInTerm_op2, VarOccursInTerm_op1.
-  rewrite VarOccursInTerm_var, VarOccursInTerm_var.
-  destruct v. inversion H0. apply le_S_n in H0.
-  destruct v. inversion H0. apply le_S_n in H0.
-  destruct v. inversion H0. apply le_S_n in H0.
-  destruct v. inversion H0. apply le_S_n in H0.
-  reflexivity.
+  unfold godel_beta.
+  apply ComposeRepr_23.
+  apply mod_repr.
+  apply (proj_represented 3 0). auto.
+  apply ComposeRepr_23.
+  apply AdditionRepresented.
+  apply ComposeRepr_23.
+  apply MultiplicationRepresented.
+  apply ComposeRepr_23.
+  apply AdditionRepresented.
+  apply (proj_represented 3 2). apply Nat.le_refl.
+  apply (ConstantRepresented 1 3).
+  apply (proj_represented 3 1). auto.
+  apply (ConstantRepresented 1 3).
 Qed.
 
 (* We add a minimalist clause to beta_repr so that it better represents beta
@@ -465,6 +443,7 @@ Definition beta_prop_min : nat :=
   (Land beta_repr
         (Lforall (S m) (Limplies (PAle (PAsucc (Lvar (S m))) (Lvar 3))
                                  (Lnot (Subst (Lvar (S m)) 3 beta_repr))))).
+
 Lemma beta_representation_unique
   : FormulaRepresents 3 godel_beta beta_prop_min.
 Proof.
@@ -534,11 +513,11 @@ Proof.
     rewrite Subst_forall; simpl; rewrite m2.
     do 4 rewrite Subst_implies.
     do 4 rewrite Subst_PAle, SubstTerm_PAsucc.
-    reduce_subst; simpl. rewrite SubstTerm_var. simpl. rewrite m0.
-    do 2 rewrite SubstTerm_var. simpl. rewrite m1.
+    reduce_subst; simpl. rewrite SubstTerm_var. simpl. rewrite m1.
+    do 2 rewrite SubstTerm_var. simpl. 
+    rewrite SubstTerm_var. simpl. rewrite m0.
+    rewrite SubstTerm_var. simpl.
     rewrite SubstTerm_var. simpl. rewrite m2.
-    rewrite SubstTerm_var. simpl.
-    rewrite SubstTerm_var. simpl.
     apply LforallIntro.
     apply LforallBounded_lt.
     rewrite IsLproposition_not.
@@ -554,9 +533,9 @@ Proof.
     (* Finish by showing that a cannot satisfy beta_repr,
        otherwise it would be equal to godel_beta i j k. *)
     rewrite Subst_not.
-    rewrite (SubstSubstDiffCommutes _ 0 3).
-    rewrite (SubstSubstDiffCommutes _ 1 3).
     rewrite (SubstSubstDiffCommutes _ 2 3).
+    rewrite (SubstSubstDiffCommutes _ 1 3).
+    rewrite (SubstSubstDiffCommutes _ 0 3).
     rewrite SubstSubstIdem, SubstTerm_var. simpl. rewrite m2.
     rewrite SubstSubstNested, SubstTerm_var, Nat.eqb_refl.
     + apply NotByContradiction.
@@ -593,7 +572,8 @@ Proof.
     + rewrite VarOccursFreeInFormula_SubstDiff, VarOccursFreeInFormula_SubstDiff.
       rewrite VarOccursFreeInFormula_SubstDiff.
       apply MaxVarDoesNotOccurFree. apply fr_propprop.
-      apply Nat.le_refl. apply fr_propprop. discriminate.
+      apply Nat.le_refl. apply fr_propprop.
+      apply Nat.eqb_neq. exact m1.
       apply PAnat_closed.
       apply SubstIsLproposition. apply fr_propprop. apply IsLterm_PAnat.
       apply Nat.eqb_neq. exact m0.
@@ -601,8 +581,7 @@ Proof.
       apply SubstIsLproposition.
       apply SubstIsLproposition.
       apply fr_propprop. apply IsLterm_PAnat. apply IsLterm_PAnat.
-      apply Nat.eqb_neq. exact m1.
-      apply PAnat_closed.
+      discriminate. apply PAnat_closed.
     + apply MaxVarFreeSubst_var.
       apply SubstIsLproposition.
       apply SubstIsLproposition.
@@ -618,13 +597,13 @@ Proof.
       rewrite MaxVarTerm_PAnat. apply Nat.le_refl.
     + discriminate.
     + apply PAnat_closed.
-    + rewrite VarOccursInTerm_var, Nat.eqb_sym. exact m1.
+    + rewrite VarOccursInTerm_var, Nat.eqb_sym. reflexivity.
     + discriminate.
     + apply PAnat_closed.
     + rewrite VarOccursInTerm_var, Nat.eqb_sym. exact m0.
     + discriminate.
     + apply PAnat_closed.
-    + apply VarOccursInTerm_var.
+    + rewrite VarOccursInTerm_var, Nat.eqb_sym. exact m1.
 Qed.
 
 Lemma beta_prop_min_IsLprop : IsLproposition beta_prop_min = true.
@@ -1468,12 +1447,13 @@ Qed.
 
 (* beta init and beta_rec_body work, which means the beta-sequence they
    produce is equal to nat_rec u. *)
-Lemma beta_recurse : forall (u : nat -> nat -> nat) (j k i : nat)
+Lemma beta_recurse :
+  forall (u : nat -> nat -> nat) (j k i : nat)
     (urep : FunctionRepresented 2 u),
     let m := S (Nat.max (MaxVar (proj1_sig beta_repr_uniq)) (MaxVar urep)) in
     (k <= j)%nat ->
-  IsProved IsWeakHeytingAxiom
-    (Limplies
+    IsProved IsWeakHeytingAxiom
+             (Limplies
        (Land (Subst (PAnat i) 3 (Subst PAzero 2 (betast m)))
              (beta_rec_body m urep (PAnat j)))
        (Subst (PAnat (nat_rec (fun _ : nat => nat) i u k)) 3 (Subst (PAnat k) 2 (betast m)))).
@@ -1658,13 +1638,17 @@ Proof.
     apply SubstIsLproposition.
     apply SubstIsLproposition. apply betast_IsLprop.
     apply (IsLterm_PAnat (S k)). apply IsLterm_var.
-    pose proof (fr_rep _ _ urep (ConsNat k (ConsNat (nat_rec (fun _ : nat => nat) i u k) NilNat))).
-    simpl in H1. rewrite CoordTailNat, CoordConsHeadNat, CoordConsTailNat in H1.
-    rewrite CoordConsHeadNat in H1.
+    pose proof (fr_rep _ _ urep
+                       (ConsNat k (ConsNat (nat_rec (fun _ : nat => nat) i u k) NilNat)))
+      as H1.
+    simpl in H1.
+    rewrite CoordTailNat, CoordConsHeadNat, CoordConsTailNat, CoordConsHeadNat in H1.
     apply (LforallElim _ _ _ (Lvar (4+m))) in H1.
     rewrite Subst_equiv, Subst_eq, SubstTerm_var, Nat.eqb_refl, SubstTerm_PAnat in H1.
-    apply LandElim1 in H1. exact H1.
-    apply IsLterm_var.
+    apply LandElim1 in H1.
+    rewrite (SubstSubstDiffCommutes _ 1 0). 
+    exact H1. discriminate. apply PAnat_closed. apply PAnat_closed.
+    apply (IsLterm_var (4+m)).
     unfold Leq. rewrite IsFreeForSubst_equiv, IsFreeForSubst_rel2, Bool.andb_true_r.
     apply MaxVarFreeSubst_var.
     apply SubstIsLproposition.
@@ -1906,14 +1890,21 @@ Proof.
     destruct beta_repr_uniq as [repr H1]; unfold proj1_sig.
     unfold proj1_sig in m. clear H1.
     pose proof (FormulaRepresents_alt
-               _ _ _ (ConsNat s (ConsNat t (ConsNat 0 NilNat))) (fr_rep _ _ repr) (fr_propprop _ _ repr) i).
+               _ _ _ (ConsNat s (ConsNat t (ConsNat 0 NilNat))) (fr_rep _ _ repr) (fr_propprop _ _ repr) i) as H1.
     simpl in H1.
     do 3 rewrite CoordTailNat in H1.
     rewrite CoordConsHeadNat in H1.
     do 3 rewrite CoordConsTailNat in H1.
     rewrite CoordConsHeadNat in H1.
     rewrite CoordConsHeadNat in H1.
+    rewrite (SubstSubstDiffCommutes _ 1 0).
+    rewrite (SubstSubstDiffCommutes _ 2 0).
+    rewrite (SubstSubstDiffCommutes _ 2 1).
     apply H1, H. apply le_n_S, le_0_n.
+    discriminate. apply (PAnat_closed 0).
+    apply PAnat_closed. discriminate. apply (PAnat_closed 0).
+    apply PAnat_closed. discriminate. apply PAnat_closed.
+    apply PAnat_closed.
     apply le_n_S, Nat.le_max_l. apply (le_trans _ 4). auto. exact fourlem.
     intro abs. apply le_n_S in fourlem. rewrite abs in fourlem.
     apply le_S_n, le_S_n in fourlem. inversion fourlem.
@@ -2019,7 +2010,13 @@ Proof.
       do 3 rewrite CoordConsTailNat in H2.
       rewrite CoordConsHeadNat in H2.
       rewrite CoordConsHeadNat in H2.
+      rewrite (SubstSubstDiffCommutes _ 2 1).
+      rewrite (SubstSubstDiffCommutes _ 2 0).
+      rewrite (SubstSubstDiffCommutes _ 1 0).
       apply H2. reflexivity.
+      discriminate. apply PAnat_closed. apply PAnat_closed.
+      discriminate. apply PAnat_closed. apply PAnat_closed.
+      discriminate. apply PAnat_closed. apply PAnat_closed.
       apply le_n_S, Nat.le_max_l.
       refine (Nat.le_trans _ _ _ _ fourlem). auto.
       apply SubstIsLproposition.
@@ -2131,7 +2128,15 @@ Proof.
       rewrite CoordConsHeadNat in H1.
       do 3 rewrite CoordConsTailNat in H1.
       do 2 rewrite CoordConsHeadNat in H1.
+      rewrite (SubstSubstDiffCommutes _ 2 1).
+      rewrite (SubstSubstDiffCommutes _ 2 0).
+      rewrite (SubstSubstDiffCommutes _ 1 0).
       apply H1. reflexivity.
+      discriminate. apply PAnat_closed. apply PAnat_closed.
+      discriminate. unfold PAsucc. rewrite VarOccursInTerm_op1.
+      apply PAnat_closed. apply PAnat_closed.
+      discriminate. unfold PAsucc. rewrite VarOccursInTerm_op1.
+      apply PAnat_closed. apply PAnat_closed. 
       apply le_n_S, Nat.le_max_l. 
       refine (Nat.le_trans _ _ _ _ fourlem). auto.
       apply VarOccursFreeInFormula_SubstClosed.
@@ -2238,7 +2243,10 @@ Proof.
       rewrite CoordConsHeadNat in H2.
       rewrite CoordConsTailNat in H2.
       rewrite CoordConsHeadNat in H2.
-      apply H2. reflexivity. apply le_S, H0.
+      rewrite (SubstSubstDiffCommutes _ 1 0).
+      apply H2. reflexivity.
+      discriminate. apply PAnat_closed. apply PAnat_closed.
+      apply le_S, H0.
       rewrite LengthRangeNat. apply le_S, H0. apply le_S, H0.
       apply le_n_S, H0. rewrite LengthRangeNat. apply le_n_S, H0.
       apply VarOccursFreeInFormula_SubstClosed.
@@ -2344,7 +2352,13 @@ Proof.
     do 3 rewrite CoordConsTailNat in H2.
     rewrite CoordConsHeadNat in H2.
     rewrite CoordConsHeadNat in H2. 
+    rewrite (SubstSubstDiffCommutes _ 2 1).
+    rewrite (SubstSubstDiffCommutes _ 2 0).
+    rewrite (SubstSubstDiffCommutes _ 1 0).
     apply H2, H.
+    discriminate. apply PAnat_closed. apply PAnat_closed.
+    discriminate. apply PAnat_closed. apply PAnat_closed.
+    discriminate. apply PAnat_closed. apply PAnat_closed.
     apply le_n_S, Nat.le_max_l.
     apply (Nat.le_trans _ 4). auto. exact fourlem.
     apply SubstIsLproposition.
@@ -2451,8 +2465,10 @@ Proof.
       apply Nat.max_lub. apply Nat.le_refl. apply le_S, le_S, Nat.le_max_l. }
     unfold nat_rec_representation; fold m. simpl.
     reduce_subst; rewrite m0, m1; simpl.
-    reduce_subst; rewrite m11; simpl.
+    reduce_subst; simpl.
     rewrite SubstTerm_PAnat.
+    rewrite (SubstSubstDiffCommutes (beta_rec_body m urep (Lvar 1)) 0 1).
+    2: discriminate. 2: apply PAnat_closed. 2: apply PAnat_closed.
     rewrite (Subst_nosubst (beta_rec_body m urep (Lvar 1)) 0).
     2: apply (beta_rec_body_vars _ _ 0 (le_0_n _)).
     2: apply fr_propprop.
@@ -2779,21 +2795,31 @@ Proof.
       apply SubstIsLproposition. apply betast_IsLprop. apply IsLterm_const.
       discriminate. rewrite VarOccursInTerm_var. reflexivity.
     + rewrite VarOccursFreeInFormula_SubstDiff, VarOccursFreeInFormula_SubstDiff.
+      rewrite VarOccursFreeInFormula_SubstDiff.
       apply betast_vars. apply Nat.eqb_neq.
       rewrite Nat.eqb_sym. exact m0. apply le_0_n.
       apply betast_IsLprop. discriminate.
       rewrite VarOccursInTerm_var. reflexivity.
       apply SubstIsLproposition. apply betast_IsLprop. apply IsLterm_var.
-      discriminate. unfold PAsucc. 
+      discriminate. 
       rewrite VarOccursInTerm_var. reflexivity.
+      apply SubstIsLproposition.
+      apply SubstIsLproposition.
+      apply betast_IsLprop. apply IsLterm_var. apply IsLterm_var.
+      discriminate. apply PAnat_closed.
     + rewrite VarOccursFreeInFormula_SubstDiff, VarOccursFreeInFormula_SubstDiff.
+      rewrite VarOccursFreeInFormula_SubstDiff.
       apply betast_vars. apply Nat.eqb_neq.
       rewrite Nat.eqb_sym. exact m0. apply le_0_n.
       apply betast_IsLprop. discriminate.
       apply (PAnat_closed 0).
-      apply SubstIsLproposition. apply betast_IsLprop. apply IsLterm_const.
-      discriminate.
+      apply SubstIsLproposition. apply betast_IsLprop. 
+      apply (IsLterm_PAnat 0). discriminate. 
       rewrite VarOccursInTerm_var. reflexivity.
+      apply SubstIsLproposition.
+      apply SubstIsLproposition.
+      apply betast_IsLprop. apply (IsLterm_PAnat 0).
+      apply IsLterm_var. discriminate. apply PAnat_closed.
   - intros. apply nat_rec_repr_vars. apply fr_propprop.
     exact H. intros. apply fr_vars. exact H0.
 Qed.

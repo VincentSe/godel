@@ -105,24 +105,23 @@ Proof.
 Qed.
 
 Lemma SubstLopTermTruncated : forall o terms u v i,
-    NthTailNat terms (LengthNat terms) = 0
-    -> i <= S (S (LengthNat terms))
+    i <= S (S (LengthNat terms))
     -> NthTailNat
         (SubstLopTerm (Lop o terms) i
                       (fun i : nat => SubstTerm u v (CoordNat (Lop o terms) i)))
-        (S (S (LengthNat terms))) = 0.
+        (S (S (LengthNat terms)))
+      = NthTailNat terms (LengthNat terms).
 Proof.
   induction i.
-  - intros. simpl. rewrite TailTailNat_op. exact H.
+  - intros. simpl. rewrite TailTailNat_op. reflexivity.
   - intros. simpl.
-    destruct i. rewrite TailTailNat_op. exact H.
-    destruct i. rewrite TailTailNat_op. exact H.
-    specialize (IHi H).
+    destruct i. rewrite TailTailNat_op. reflexivity.
+    destruct i. rewrite TailTailNat_op. reflexivity.
     rewrite <- SetCoordTailNat, <- SetCoordTailNat.
     rewrite NthTailSetCoordNat.
-    2: apply le_S_n, le_S_n, H0.
-    apply IHi. refine (Nat.le_trans _ _ _ _ H0).
-    apply le_S, Nat.le_refl.
+    2: apply le_S_n, le_S_n, H.
+    apply IHi. apply le_S_n in H.
+    apply le_S, H.
 Qed.
 
 Lemma SubstLopTermDiff : forall t i rec,
@@ -269,22 +268,31 @@ Lemma SubstTerm_op : forall u v o args,
     SubstTerm u v (Lop o args) = Lop o (SubstTerms u v args).
 Proof.
   intros.
-  rewrite SubstTerm_opHead.
-  unfold SubstTerms, MapNat.
-  rewrite LengthLop.
-  induction (LengthNat args); [reflexivity|].
-  rewrite Nat.add_succ_r.
-  change (SetCoordNat (SubstLopTerm (Lop o args) (2 + n)
-                                    (fun i : nat => SubstTerm u v (CoordNat (Lop o args) i)))
-                      (2+n) ((fun i : nat => SubstTerm u v (CoordNat (Lop o args) i))(2+n))
-          = Lop o
-    (SetCoordNat (MapNatRec (SubstTerm u v) args n) n
-       (SubstTerm u v (CoordNat args n)))).
-  rewrite IHn.
-  change (2+n) with (S (S n)).
-  rewrite CoordNat_op. unfold Lop.
-  rewrite SetCoordConsNat, SetCoordConsNat. reflexivity.
-  unfold Lop. rewrite CoordConsHeadNat. reflexivity.
+  rewrite SubstTerm_opHead. 
+  apply TruncatedEqNat.
+  - rewrite SubstLopTermLength, LengthLop, LengthLop.
+    unfold SubstTerms. rewrite LengthMapNat. reflexivity.
+  - rewrite SubstLopTermLength, LengthLop, SubstLopTermTruncated.
+    rewrite LengthLop. simpl. rewrite TailTailNat_op.
+    unfold SubstTerms. rewrite LengthMapNat, MapNatTruncated. reflexivity.
+    apply Nat.le_refl.
+  - intros. rewrite SubstLopTermLength in H.
+    destruct k.
+    rewrite SubstLopTermHead.
+    unfold Lop. rewrite CoordConsHeadNat, CoordConsHeadNat. reflexivity.
+    destruct k.
+    rewrite SubstLopTermOp.
+    unfold Lop. rewrite CoordConsTailNat, CoordConsHeadNat.
+    rewrite CoordConsTailNat, CoordConsHeadNat. reflexivity.
+    rewrite LengthLop in H.
+    apply le_S_n, le_S_n in H.
+    rewrite LengthLop.
+    change (2 + LengthNat args) with (S (S (LengthNat args))).
+    rewrite SubstLopTermCoord. 2: exact H.
+    rewrite CoordNat_op, CoordNat_op. 
+    unfold SubstTerms. rewrite CoordMapNat. reflexivity.
+    exact H. rewrite LengthLop. apply Nat.le_refl. 
+  - unfold Lop. rewrite CoordConsHeadNat. reflexivity.
 Qed.
 
 Lemma SubstTerm_const : forall u v c,
@@ -351,7 +359,8 @@ Proof.
     rewrite SubstTermsCoord. 2: exact H0.
     apply IHterms. exact H0. exact H.
     rewrite SubstTermsLength.
-    apply MapNatTruncated. exact termsTrunc.
+    unfold SubstTerms.
+    rewrite MapNatTruncated. exact termsTrunc.
 Qed.
 
 
@@ -571,7 +580,8 @@ Proof.
   - (* Lrel *)
     intros. rewrite Subst_rel, IsLproposition_rel.
     split. 
-    unfold SubstTerms. rewrite LengthMapNat. apply MapNatTruncated, termsTrunc.
+    unfold SubstTerms. rewrite LengthMapNat.
+    rewrite MapNatTruncated. exact termsTrunc.
     intros. rewrite SubstTermsLength in H0.
     rewrite SubstTermsCoord.
     apply IsSubstTermLterm.
@@ -1462,6 +1472,14 @@ Proof.
   reflexivity.
 Qed.
 
+Lemma MaxVar_equiv : forall f g,
+    MaxVar (Lequiv f g) = Nat.max (MaxVar f) (MaxVar g).
+Proof.
+  intros. unfold Lequiv.
+  rewrite MaxVar_and, MaxVar_implies, MaxVar_implies.
+  rewrite (Nat.max_comm (MaxVar f)), Nat.max_id. reflexivity.
+Qed. 
+
 Lemma MaxVar_forall : forall v f, MaxVar (Lforall v f) = Nat.max v (MaxVar f).
 Proof.
   intros. rewrite MaxVar_step.
@@ -1496,6 +1514,18 @@ Proof.
   unfold MaxVarRec. unfold Lrel at 1.
   rewrite CoordConsHeadNat.
   unfold Lrel; rewrite TailConsNat, TailConsNat.
+  reflexivity.
+Qed.
+
+Lemma MaxVar_rel2 : forall r f g,
+    MaxVar (Lrel2 r f g) = Nat.max (MaxVarTerm f) (MaxVarTerm g).
+Proof.
+  intros. unfold Lrel2. rewrite MaxVar_rel.
+  rewrite MaxVarTerm_op. rewrite LengthConsNat, LengthConsNat.
+  change (LengthNat NilNat) with 0.
+  simpl.
+  rewrite CoordNat_op, CoordNat_op. 
+  rewrite CoordConsHeadNat, CoordConsTailNat, CoordConsHeadNat.
   reflexivity.
 Qed.
 
