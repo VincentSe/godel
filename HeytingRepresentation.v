@@ -912,8 +912,8 @@ Proof.
     PAnat_subst_multi arity i args (LandMulti Ak A)
     = LandMulti (MapNat (PAnat_subst_multi arity i args) Ak)
                 (PAnat_subst_multi arity i args A))).
-  - intros. unfold LandMulti, MapNat.
-    rewrite H. simpl. rewrite H. reflexivity.
+  - intros. unfold LandMulti.
+    rewrite H. simpl. rewrite MapLength0Nat. reflexivity. exact H.
   - intros. rewrite LandMultiCons, PAnat_subst_multi_and.
     rewrite MapConsNat, LandMultiCons.
     apply f_equal. apply H.
@@ -1076,8 +1076,7 @@ Proof.
       unfold MaxVarList.
       rewrite MapConcatNat, MaxConcatNat.
       refine (Nat.le_trans _ _ _ _ (Nat.le_max_r _ _)).
-      rewrite MapConsNat. simpl.
-      unfold MapNat. rewrite LengthNilNat. simpl.
+      rewrite MapConsNat. rewrite MapNilNat.
       unfold MaxSeqNat. rewrite LengthConsNat, LengthNilNat.
       simpl.
       rewrite CoordConsHeadNat. apply Nat.le_refl.
@@ -1629,7 +1628,6 @@ Proof.
     rewrite LengthMapNat, LengthMapNat, LengthRangeNat, LengthRangeNat.
     reflexivity.
     rewrite LengthMapNat, LengthMapNat, MapNatTruncated, MapNatTruncated.
-    rewrite LengthRangeNat, LengthRangeNat, RangeNatTruncated, RangeNatTruncated.
     reflexivity.
     intros k H. rewrite LengthMapNat in H.
     rewrite CoordMapNat. 2: exact H.

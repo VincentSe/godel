@@ -409,7 +409,7 @@ Proof.
     destruct H as [j occur].
     rewrite SubstTerm_op.
     rewrite FindSubstTermTerm_op.
-    rewrite LengthLop, SubstTermsLength, Nat.eqb_refl, Bool.andb_true_r.
+    rewrite LengthLop, LengthMapNat, Nat.eqb_refl, Bool.andb_true_r.
     unfold Lop at 1.
     rewrite CoordConsHeadNat, Nat.eqb_refl, Bool.andb_true_l.
     unfold Lop at 1.
@@ -417,17 +417,31 @@ Proof.
     rewrite Nat.eqb_refl.
     destruct (FindSubstTermTermLoop_true
                 (LengthNat (Lop o terms)) j v (Lop o terms)
-                (Lop o (SubstTerms t v terms)))
+                (Lop o (MapNat (SubstTerm t v) terms)))
       as [k [H0 [H1 H2]]].
     apply occur. apply occur.
     rewrite LengthLop in H2.
+    replace (MapNat (fun i : nat => SubstTerm t v (CoordNat (Lop o terms) i))
+             (RangeNat 2 (LengthNat terms)))
+      with (MapNat (SubstTerm t v) terms).
     rewrite H2. clear H2.
     rewrite LengthLop in H0. 
-    rewrite CoordNat_op, CoordNat_op, SubstTermsCoord.
+    rewrite CoordNat_op, CoordNat_op, CoordMapNat.
     apply IHterms. 
     exact H0.
     rewrite CoordNat_op in H1. exact H1. exact H0.
+    apply TruncatedEqNat.
+    rewrite LengthMapNat, LengthMapNat, LengthRangeNat. reflexivity.
+    rewrite LengthMapNat, LengthMapNat.
+    rewrite MapNatTruncated, MapNatTruncated. reflexivity.
+    intros k0 H. rewrite LengthMapNat in H.
+    rewrite CoordMapNat, CoordMapNat, CoordRangeNat, (CoordNat_op _ _ k0).
+    reflexivity. exact H. rewrite LengthRangeNat. exact H. exact H.
     unfold Lop. rewrite CoordConsHeadNat. reflexivity.
+    change 2 with (2+0). rewrite LengthLop.
+    apply Nat.add_le_mono_l, le_0_n.
+    rewrite LengthLop. simpl. unfold Lop.
+    rewrite TailConsNat, TailConsNat. exact termsTrunc. 
 Qed.
 
 Lemma FindSubstTerm_not : forall v f g,
@@ -580,16 +594,17 @@ Proof.
   - (* Lrel *)
     intros. 
     rewrite Subst_rel, FindSubstTerm_rel, Nat.eqb_refl.
-    rewrite SubstTermsLength, Nat.eqb_refl. simpl.
+    rewrite LengthMapNat, Nat.eqb_refl. simpl.
     apply VarOccursFreeInFormula_rel in H.
     destruct H as [j [H H0]].
     pose proof (FindSubstTermLoop_true
                   (LengthNat terms) j v terms
-                  (SubstTerms t v terms)
+                  (MapNat (SubstTerm t v) terms)
                   H H0) as [k H3].
     destruct H3, H2.
-    rewrite H3, SubstTermsCoord. 2: exact H1. 
+    rewrite H3, CoordMapNat. 2: exact H1. 
     apply FindSubstTermTerm_true. apply elemterms, H1. exact H2.
+    exact termsTrunc.
   - (* Lnot *)
     intros.
     rewrite VarOccursFreeInFormula_not in H.
@@ -1423,10 +1438,7 @@ Proof.
   intros. 
   rewrite <- (LengthRangeNat l 0) at 2.
   unfold EvenVars.
-  rewrite MapNatTruncated. rewrite LengthRangeNat.
-  generalize 0 at 1.
-  induction l. reflexivity. simpl. intro k.
-  rewrite TailConsNat. apply IHl.
+  apply MapNatTruncated.
 Qed.
 
 Lemma EqualityAxiomIsLproposition : forall f,

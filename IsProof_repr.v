@@ -670,55 +670,73 @@ Proof.
     destruct n0; reflexivity.
 Qed.
 
-Lemma SubstLopTerm_repr :
-  FunctionRepresented 2
-    (fun term previousValues : nat =>
-     SubstLopTerm term (LengthNat term) (CoordNat previousValues)).
+Lemma RangeNat_repr : FunctionRepresented 2 RangeNat.
 Proof.
-  pose (fun p currentStep val : nat
-        => SetCoordNat val (S (S currentStep)) (CoordNat p (S (S currentStep))))
-    as v.
-  apply (FunctionRepresented_2_ext
-           (@ncompose 3 2 (fun param init => nat_rec (fun _ => nat) init (v param))
-                      (fun k => match k with
-                             | O => fun term prev => prev
-                             | 1 => fun term prev => term
-                             | _ => fun term prev => LengthNat term - 2
-                             end))).
-  - apply ComposeRepr_n.
+  pose (fun start currentStep val
+        => ConcatNat val (ConsNat (currentStep+start) NilNat)) as f.
+  apply (FunctionRepresented_2_ext (fun start => nat_rec (fun _ => nat) NilNat (f start))).
+  - apply (ComposeRepr_32 (fun param init => nat_rec (fun _ => nat) init (f param))).
     apply nat_rec_param_repr.
-    unfold v.
-    apply ComposeRepr_33. exact SetCoordNat_repr.
+    unfold f.
+    apply ComposeRepr_23. exact ConcatNat_repr.
     apply (proj_represented 3 2); auto.
-    apply ComposeRepr_13. exact SuccessorRepresented.
-    apply ComposeRepr_13. exact SuccessorRepresented.
+    apply ComposeRepr_23. exact ConsNat_repr.
+    apply ComposeRepr_23. exact AdditionRepresented.
     apply (proj_represented 3 1); auto.
-    apply ComposeRepr_23. exact CoordNat_repr.
     apply (proj_represented 3 0); auto.
-    apply ComposeRepr_13. exact SuccessorRepresented.
-    apply ComposeRepr_13. exact SuccessorRepresented.
-    apply (proj_represented 3 1); auto.
-    intros [|k].
+    apply (ConstantRepresented 0).
+    apply (proj_represented 2 0); auto.
+    apply (ConstantRepresented 0).
     apply (proj_represented 2 1); auto.
-    destruct k.
-    apply (proj_represented 2 0); auto.
-    apply ComposeRepr_22. exact SubtractionRepresented.
-    apply ComposeRepr_12. exact LengthNat_repr.
-    apply (proj_represented 2 0); auto.
-    apply (ConstantRepresented 2).
-  - simpl.
-    assert (forall i n k,
-               nat_rec (fun _ : nat => nat) n (v k) (i-2) = SubstLopTerm n i (CoordNat k)).
-    2: intros n k; apply H.
-    induction i. reflexivity.
-    intros n k. simpl.
-    destruct i. reflexivity. destruct i. reflexivity.
-    simpl (S (S i) - 1).
-    specialize (IHi n k).
-    simpl (nat_rec (fun _ : nat => nat) n (v k) (S i)).
-    simpl (S (S i) - 2) in IHi.
-    rewrite Nat.sub_0_r in IHi.
-    rewrite IHi. reflexivity.
+  - intro start. induction k. reflexivity.
+    simpl. rewrite IHk. clear IHk.
+    unfold f.
+    apply TruncatedEqNat.
+    rewrite LengthConcatNat, LengthRangeNat, LengthConsNat, LengthConsNat.
+    rewrite LengthRangeNat, Nat.add_comm. reflexivity.
+    rewrite LengthConcatNat, NthTailConcatNat.
+    rewrite LengthConsNat, LengthConsNat, LengthRangeNat.
+    change (LengthNat NilNat) with 0.
+    simpl. rewrite TailConsNat, TailConsNat.
+    rewrite RangeNatTruncated. reflexivity.
+    intros i H.
+    rewrite LengthConcatNat, LengthRangeNat, LengthConsNat in H.
+    rewrite Nat.add_comm in H.
+    change (LengthNat NilNat) with 0 in H. simpl in H.
+    change (ConsNat start (RangeNat (S start) k)) with (RangeNat start (S k)).
+    apply Nat.le_succ_r in H. destruct H.
+    rewrite CoordConcatNatFirst. 
+    rewrite CoordRangeNat, CoordRangeNat. reflexivity.
+    apply le_n_S. apply (Nat.le_trans _ (S i)).
+    apply le_S, Nat.le_refl. exact H. exact H.
+    rewrite LengthRangeNat. exact H.
+    inversion H. subst k.
+    replace i with (0+LengthNat (RangeNat start i)) at 3.
+    rewrite CoordConcatNatSecond.
+    rewrite CoordConsHeadNat, CoordRangeNat, Nat.add_comm. reflexivity.
+    apply Nat.le_refl. rewrite LengthRangeNat. reflexivity.
+Qed.
+ 
+Lemma SubstLopTerm_repr : FunctionRepresented 2
+    (fun n previousValues : nat =>
+     Lop (CoordNat n 1)
+         (MapNat (CoordNat previousValues) (RangeNat 2 (LengthNat n - 2)))).
+Proof.
+  apply ComposeRepr_22. exact Lop_repr.
+  apply ComposeRepr_22. exact CoordNat_repr.
+  apply (proj_represented 2 0); auto.
+  apply (ConstantRepresented 1).
+  apply (ComposeRepr_22 (fun n => MapNat (CoordNat n))
+                       (fun u v => v)
+                            (fun u v => RangeNat 2 (LengthNat u - 2))).
+  apply MapNat_repr. exact CoordNat_repr.
+  apply (proj_represented 2 1). auto.
+  apply ComposeRepr_22. exact RangeNat_repr.
+  apply (ConstantRepresented 2).
+  apply ComposeRepr_22. exact SubtractionRepresented.
+  apply ComposeRepr_12. exact LengthNat_repr.
+  apply (proj_represented 2 0). auto.
+  apply (ConstantRepresented 2).
 Qed.
 
 Lemma SubstTerm_repr : FunctionRepresented 3 SubstTerm.
@@ -736,12 +754,14 @@ Proof.
       apply (FunctionRepresented_3_ext
                (fun param n previousValues =>
                   if CoordNat n 0 =? LopHead then
-                    SubstLopTerm n (LengthNat n) (CoordNat previousValues)
+                    Lop (CoordNat n 1)
+                        (MapNat (CoordNat previousValues) (RangeNat 2 (LengthNat n - 2)))
                   else if CoordNat n 0 =? LvarHead then
                          if CoordNat n 1 =? diagY param then diagX param else n
                        else 0)).
       apply (IfRepresented 3 (fun param n previousValues => CoordNat n 0 =? LopHead)
-                           (fun _ n previousValues => SubstLopTerm n (LengthNat n) (CoordNat previousValues))).
+                           (fun _ n previousValues => Lop (CoordNat n 1)
+                        (MapNat (CoordNat previousValues) (RangeNat 2 (LengthNat n - 2))))).
       apply (EqbRepresented 3).
       apply ComposeRepr_23. exact CoordNat_repr.
       apply (proj_represented 3 1); auto.
@@ -749,7 +769,8 @@ Proof.
       apply (ConstantRepresented LopHead).
       apply (ComposeRepr_23
                (fun n previousValues : nat =>
-                  SubstLopTerm n (LengthNat n) (CoordNat previousValues))).
+Lop (CoordNat n 1)
+       (MapNat (CoordNat previousValues) (RangeNat 2 (LengthNat n - 2))))).
       exact SubstLopTerm_repr.
       apply (proj_represented 3 1); auto.
       apply (proj_represented 3 2); auto.
@@ -792,14 +813,14 @@ Proof.
       destruct n0. reflexivity.
       destruct n0. reflexivity.
       destruct n0. 2: reflexivity.
-      revert H. induction (LengthNat n).
-      intros. reflexivity.
-      intros. simpl.
-      destruct n0. reflexivity.
-      destruct n0. reflexivity.
-      rewrite H. rewrite IHn0. reflexivity.
-      intros. apply H. apply le_S, H0.
-      apply Nat.le_refl.
+      apply f_equal.
+      apply MapNatExt. intros. rewrite LengthRangeNat in H0.
+      rewrite H. reflexivity.
+      rewrite CoordRangeNat. 2: exact H0.
+      destruct (LengthNat n). simpl in H0. inversion H0.
+      destruct n0. simpl in H0. inversion H0.
+      simpl. simpl in H0. rewrite Nat.sub_0_r in H0.
+      apply le_n_S, le_n_S. exact H0.
     + intros [|k].
       apply ComposeRepr_23. exact diagMerge_repr.
       apply (proj_represented 3 0); auto.
@@ -823,54 +844,29 @@ Proof.
   apply (ConstantRepresented v).
 Qed.
 
-Lemma SubstTerms_repr : FunctionRepresented 3 SubstTerms.
+Lemma SubstTerms_repr : FunctionRepresented 3 (fun i j k => MapNat (SubstTerm i j) k).
 Proof.
-  pose (fun uv currentStep val
-        => SetCoordNat val currentStep (SubstTerm (diagX uv) (diagY uv) (CoordNat val currentStep)))
-    as stepF.
   apply (FunctionRepresented_3_ext
-           (@ncompose 3 3
-                      (fun param init => nat_rec (fun _ => nat) init (stepF param))
+           (@ncompose 2 3
+                      (fun i_j k => MapNat (SubstTerm (diagX i_j) (diagY i_j)) k)
                       (fun k => match k with
-                             | O => fun u v terms => diagMerge u v
-                             | 1 => fun u v terms => terms
-                             | _ => fun u v terms => LengthNat terms
+                             | O => fun i j k => diagMerge i j
+                             | _ => fun i j k => k
                              end))).
   - apply ComposeRepr_n.
-    apply nat_rec_param_repr.
-    unfold stepF.
-    apply ComposeRepr_33. exact SetCoordNat_repr.
-    apply (proj_represented 3 2); auto.
-    apply (proj_represented 3 1); auto.
-    apply ComposeRepr_33. exact SubstTerm_repr.
-    apply ComposeRepr_13. exact diagX_repr. 
-    apply (proj_represented 3 0); auto.
-    apply ComposeRepr_13. exact diagY_repr. 
-    apply (proj_represented 3 0); auto.
-    apply ComposeRepr_23. exact CoordNat_repr.
-    apply (proj_represented 3 2); auto.
-    apply (proj_represented 3 1); auto.
+    apply MapNat_repr.
+    apply ComposeRepr_32. exact SubstTerm_repr.
+    apply ComposeRepr_12. exact diagX_repr.
+    apply (proj_represented 2 0); auto.
+    apply ComposeRepr_12. exact diagY_repr.
+    apply (proj_represented 2 0); auto.
+    apply (proj_represented 2 1); auto.
     intros [|k].
     apply ComposeRepr_23. exact diagMerge_repr.
     apply (proj_represented 3 0); auto.
     apply (proj_represented 3 1); auto.
-    destruct k.
-    apply (proj_represented 3 2); auto.
-    apply ComposeRepr_13. exact LengthNat_repr.
-    apply (proj_represented 3 2); auto.
-  - assert (forall l u v k,
-               l <= LengthNat k ->
-               nat_rec (fun _ : nat => nat) k (stepF (diagMerge u v)) l
-               = MapNatRec (SubstTerm u v) k l).
-    induction l. reflexivity.
-    intros. simpl. rewrite IHl.
-    unfold stepF.
-    rewrite CoordMapNatRec.
-    rewrite diagXMergeId, diagYMergeId.
-    apply SetMapNatRec, H.
-    apply (Nat.le_trans _ (S l)).
-    apply le_S, Nat.le_refl. exact H.
-    intros. apply H. apply Nat.le_refl. 
+    apply (proj_represented 3 2); auto. 
+  - intros. simpl. rewrite diagXMergeId, diagYMergeId. reflexivity.
 Qed.
   
 Lemma Subst_repr : FunctionRepresented 3 Subst.
@@ -911,7 +907,7 @@ Proof.
                            else diagY (CoordNat k (diagMerge param (CoordNat n 2))))
                 else if CoordNat n 0 =? LrelHead then
                   Lrel (CoordNat n 1)
-                       (SubstTerms (diagX param) (diagY param) (TailNat (TailNat n)))
+                       (MapNat (SubstTerm (diagX param) (diagY param)) (TailNat (TailNat n)))
                 else 0)).
     apply (IfRepresented 3 (fun p n pr => CoordNat n 0 =? LnotHead)).
     apply (EqbRepresented 3).
@@ -1025,7 +1021,7 @@ Proof.
     apply ComposeRepr_23. exact CoordNat_repr.
     apply (proj_represented 3 1); auto.
     apply (ConstantRepresented 1).
-    apply ComposeRepr_33. exact SubstTerms_repr.
+    apply (ComposeRepr_33 _ _ _ _ SubstTerms_repr).
     apply ComposeRepr_13. exact diagX_repr.
     apply (proj_represented 3 0); auto.
     apply ComposeRepr_13. exact diagY_repr.
@@ -2310,53 +2306,6 @@ Proof.
     reflexivity. reflexivity.
 Qed.
 
-Lemma RangeNat_repr : FunctionRepresented 2 RangeNat.
-Proof.
-  pose (fun start currentStep val
-        => ConcatNat val (ConsNat (currentStep+start) NilNat)) as f.
-  apply (FunctionRepresented_2_ext (fun start => nat_rec (fun _ => nat) NilNat (f start))).
-  - apply (ComposeRepr_32 (fun param init => nat_rec (fun _ => nat) init (f param))).
-    apply nat_rec_param_repr.
-    unfold f.
-    apply ComposeRepr_23. exact ConcatNat_repr.
-    apply (proj_represented 3 2); auto.
-    apply ComposeRepr_23. exact ConsNat_repr.
-    apply ComposeRepr_23. exact AdditionRepresented.
-    apply (proj_represented 3 1); auto.
-    apply (proj_represented 3 0); auto.
-    apply (ConstantRepresented 0).
-    apply (proj_represented 2 0); auto.
-    apply (ConstantRepresented 0).
-    apply (proj_represented 2 1); auto.
-  - intro start. induction k. reflexivity.
-    simpl. rewrite IHk. clear IHk.
-    unfold f.
-    apply TruncatedEqNat.
-    rewrite LengthConcatNat, LengthRangeNat, LengthConsNat, LengthConsNat.
-    rewrite LengthRangeNat, Nat.add_comm. reflexivity.
-    rewrite LengthConcatNat, NthTailConcatNat.
-    rewrite LengthConsNat, LengthConsNat, LengthRangeNat.
-    change (LengthNat NilNat) with 0.
-    simpl. rewrite TailConsNat, TailConsNat.
-    rewrite RangeNatTruncated. reflexivity.
-    intros i H.
-    rewrite LengthConcatNat, LengthRangeNat, LengthConsNat in H.
-    rewrite Nat.add_comm in H.
-    change (LengthNat NilNat) with 0 in H. simpl in H.
-    change (ConsNat start (RangeNat (S start) k)) with (RangeNat start (S k)).
-    apply Nat.le_succ_r in H. destruct H.
-    rewrite CoordConcatNatFirst. 
-    rewrite CoordRangeNat, CoordRangeNat. reflexivity.
-    apply le_n_S. apply (Nat.le_trans _ (S i)).
-    apply le_S, Nat.le_refl. exact H. exact H.
-    rewrite LengthRangeNat. exact H.
-    inversion H. subst k.
-    replace i with (0+LengthNat (RangeNat start i)) at 3.
-    rewrite CoordConcatNatSecond.
-    rewrite CoordConsHeadNat, CoordRangeNat, Nat.add_comm. reflexivity.
-    apply Nat.le_refl. rewrite LengthRangeNat. reflexivity.
-Qed.
- 
 Definition ZipNat (n p l : nat) : nat :=
   MapNat (fun i => diagMerge (CoordNat n i) (CoordNat p i))
          (RangeNat 0 l).
@@ -3458,26 +3407,6 @@ Proof.
   apply ComposeRepr_12.
   exact LengthNat_repr.
   apply (proj_represented 2 1); auto.
-Qed.
-
-Lemma ComposeRepr_31 : forall u (v w t : nat -> nat),
-    FunctionRepresented 3 u
-    -> FunctionRepresented 1 v
-    -> FunctionRepresented 1 w
-    -> FunctionRepresented 1 t
-    -> FunctionRepresented 1 (fun i => u (v i) (w i) (t i)).
-Proof.
-  intros u v w t urep vrep wrep trep.
-  apply (ComposeRepr_n 3 1 u (fun k => match k with
-                                    | O => v
-                                    | S i => match i with
-                                            | O => w
-                                            | _ => t
-                                            end
-                                    end) urep).
-  intros k.
-  destruct k. exact vrep.
-  destruct k. exact wrep. exact trep.
 Qed.
 
 Lemma SubstSelfZeroRepresented :

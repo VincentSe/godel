@@ -6,172 +6,15 @@ Require Import Arith.Compare_dec.
 Require Import EnumSeqNat.
 Require Import Formulas.
 
-(* Substitute term u for variable Xv in term t, up to coordinate i excluded.
-   Cannot recurse with TailNat t, because the indices of rec are those of t. *)
-Fixpoint SubstLopTerm (t i : nat) (rec : nat -> nat) {struct i} : nat :=
-  match i with
-  | O => t
-  | 1 => t
-  | 2 => t
-  | S j => SetCoordNat (SubstLopTerm t j rec) j (rec j)
-  end.
-
+(* Substitute term u for variable Xv in term t.
+   SubstTerm truncates t, as does Subst below. *)
 Definition SubstTermRec (u v t : nat) (rec : nat -> nat) : nat :=
   match CoordNat t 0 with
   | LvarHead => if Nat.eqb (CoordNat t 1) v then u else t
-  | LopHead => SubstLopTerm t (LengthNat t) rec
+  | LopHead => Lop (CoordNat t 1) (MapNat rec (RangeNat 2 (LengthNat t - 2)))
   | _ => 0
   end.
 Definition SubstTerm (u v : nat) : nat -> nat := TreeFoldNat (SubstTermRec u v) O.
-
-Lemma SubstLopTermExt : forall i t rec1 rec2,
-    (forall n:nat, n < pred (pred i) -> rec1 (S (S n)) = rec2 (S (S n)))
-    -> SubstLopTerm t i rec1 = SubstLopTerm t i rec2.
-Proof.
-  induction i. reflexivity.
-  intros. simpl. destruct i. reflexivity.
-  destruct i. reflexivity. rewrite (IHi _ rec1 rec2), H.
-  reflexivity. 
-  apply Nat.le_refl. intros. apply H.
-  apply le_S, H0.
-Qed.
-
-Lemma SubstLopTermLength : forall t i rec,
-    LengthNat (SubstLopTerm t i rec) = LengthNat t.
-Proof.
-  induction i.
-  - reflexivity.
-  - intros. simpl. destruct i. reflexivity.
-    destruct i. reflexivity.
-    rewrite LengthSetCoordNat, IHi. reflexivity.
-Qed.
-
-Lemma SubstLopTermHead : forall t i rec,
-    CoordNat (SubstLopTerm t i rec) 0 = CoordNat t 0.
-Proof.
-  induction i.
-  - reflexivity.
-  - intros. simpl. destruct i. reflexivity.
-    destruct i. reflexivity.
-    rewrite CoordSetCoordDiffNat. 2: discriminate.
-    apply IHi.
-Qed.
-
-Lemma SubstLopTermId : forall j t,
-    SubstLopTerm t j (fun i : nat => CoordNat t i) = t.
-Proof.
-  induction j; [reflexivity|].
-  intros. simpl. destruct j. reflexivity. destruct j. reflexivity.
-  rewrite IHj. apply SetCoordIdemNat.
-Qed.
-
-Lemma SubstLopTermOp : forall t i rec,
-    CoordNat (SubstLopTerm t i rec) 1 = CoordNat t 1.
-Proof.
-  induction i.
-  - reflexivity.
-  - intros. simpl. destruct i. reflexivity.
-    destruct i. reflexivity.
-    rewrite CoordSetCoordDiffNat. 2: discriminate.
-    apply IHi.
-Qed.
-
-Lemma SubstLopTermCoord : forall t i k rec,
-    k < i
-    -> i <= pred (pred (LengthNat t))
-    -> CoordNat (SubstLopTerm t (S (S i)) rec) (S (S k)) = rec (S (S k)).
-Proof.
-  induction i.
-  - intros. inversion H.
-  - intros.
-    change (SubstLopTerm t (S (S (S i))) rec)
-      with (SetCoordNat (SubstLopTerm t (S (S i)) rec) (S (S i)) (rec (S (S i)))).
-    apply Nat.le_succ_r in H.
-    destruct H.
-    + rewrite CoordSetCoordDiffNat.
-      apply IHi. exact H.
-      refine (Nat.le_trans _ _ _ _ H0). apply le_S, Nat.le_refl.
-      intro abs. inversion abs. subst k.
-      exact (Nat.lt_irrefl i H).
-    + inversion H. subst k. clear H. rewrite CoordSetCoordNat.
-      rewrite SubstLopTermLength.
-      destruct (S (S i) <? LengthNat t) eqn:des.
-      reflexivity.
-      exfalso. apply Nat.ltb_ge in des.
-      destruct (LengthNat t). inversion H0. simpl in H0.
-      destruct n. inversion H0. apply le_S_n, le_S_n in des.
-      apply (Nat.lt_irrefl i).
-      apply (Nat.le_trans _ n); assumption.
-Qed.
-
-Lemma SubstLopTermTruncated : forall o terms u v i,
-    i <= S (S (LengthNat terms))
-    -> NthTailNat
-        (SubstLopTerm (Lop o terms) i
-                      (fun i : nat => SubstTerm u v (CoordNat (Lop o terms) i)))
-        (S (S (LengthNat terms)))
-      = NthTailNat terms (LengthNat terms).
-Proof.
-  induction i.
-  - intros. simpl. rewrite TailTailNat_op. reflexivity.
-  - intros. simpl.
-    destruct i. rewrite TailTailNat_op. reflexivity.
-    destruct i. rewrite TailTailNat_op. reflexivity.
-    rewrite <- SetCoordTailNat, <- SetCoordTailNat.
-    rewrite NthTailSetCoordNat.
-    2: apply le_S_n, le_S_n, H.
-    apply IHi. apply le_S_n in H.
-    apply le_S, H.
-Qed.
-
-Lemma SubstLopTermDiff : forall t i rec,
-    SubstLopTerm t i rec <> t
-    -> { j:nat | j < pred (pred (LengthNat t))
-              /\ rec (S (S j)) <> CoordNat t (S (S j)) }.
-Proof.
-  induction i.
-  - intros. exfalso. simpl in H. apply H. reflexivity.
-  - intros. simpl in H. destruct i.
-    exfalso. apply H. reflexivity. destruct i.
-    exfalso. apply H. reflexivity.
-    destruct (Nat.eq_dec (SetCoordNat t (S (S i)) (rec (S (S i)))) t).
-    + apply (IHi rec). intro abs.
-      rewrite abs in H. contradiction.
-    + apply SetCoordDiffNat in n. destruct n.
-      exists i. split.
-      apply Nat.lt_le_pred, Nat.lt_le_pred, H0.
-      intro abs. symmetry in abs. contradiction.
-Qed.
-
-Lemma SubstLopTermSetAbove : forall coord rec p i val,
-    i <= coord
-    -> SubstLopTerm (SetCoordNat p coord val) i rec
-      = SetCoordNat (SubstLopTerm p i rec) coord val.
-Proof.
-  induction i.
-  - reflexivity.
-  - intros. simpl.
-    rewrite IHi.
-    destruct i. reflexivity.
-    destruct i. reflexivity.
-    apply SetSetCommuteDiff.
-    intro abs. rewrite abs in H.
-    exact (Nat.lt_irrefl _ H).
-    apply (Nat.le_trans _ (S i)).
-    apply le_S, Nat.le_refl. exact H.
-Qed.
- 
-Lemma SubstSubstLopTerm : forall i t rec1 rec2,
-    SubstLopTerm (SubstLopTerm t i rec1) i rec2
-    = SubstLopTerm t i rec2.
-Proof.
-  induction i.
-  - reflexivity.
-  - intros. simpl. destruct i. reflexivity.
-    destruct i. reflexivity.
-    rewrite SubstLopTermSetAbove, IHi. 2: apply Nat.le_refl.
-    rewrite SetSetIdemNat. reflexivity.
-Qed.
 
 Lemma SubstTerm_step : forall u v t,
     SubstTerm u v t = TreeFoldNatRec (SubstTermRec u v) O t (fun k _ => SubstTerm u v k).
@@ -183,12 +26,10 @@ Proof.
   destruct (le_lt_dec (LengthNat x) 0). reflexivity.
   destruct (CoordNat x 0). reflexivity.
   repeat (destruct n; [reflexivity|]).
-  destruct n.
-  generalize (LengthNat x).
-  induction n.
-  - reflexivity.
-  - simpl. rewrite IHn, H. reflexivity.
-  - destruct n. reflexivity. reflexivity.
+  destruct n. 2: destruct n; reflexivity.
+  apply f_equal.
+  apply MapNatExt. intros.
+  rewrite H. reflexivity. 
 Qed.
 
 Lemma SubstTerm_zero : forall u v, SubstTerm u v 0 = 0.
@@ -225,74 +66,37 @@ Qed.
 Lemma SubstTerm_opHead : forall u v t,
     CoordNat t 0 = LopHead
     -> SubstTerm u v t 
-      = SubstLopTerm t (LengthNat t) (fun i => SubstTerm u v (CoordNat t i)).
+      = Lop (CoordNat t 1)
+            (MapNat (fun i : nat => SubstTerm u v (CoordNat t i)) (RangeNat 2 (LengthNat t - 2))).
 Proof.
   intros.
   rewrite SubstTerm_step.
   unfold SubstTermRec, TreeFoldNatRec.
   destruct (le_lt_dec (LengthNat t) 0).
-  rewrite CoordNatAboveLength in H. discriminate. exact l.
+  exfalso. rewrite CoordNatAboveLength in H. discriminate. exact l.
   rewrite H. reflexivity.
 Qed.
 
-Definition SubstTerms (u v : nat) : nat -> nat := MapNat (SubstTerm u v).
-
-Lemma SubstTermsConsNat : forall u v h tl,
-    SubstTerms u v (ConsNat h tl) = ConsNat (SubstTerm u v h) (SubstTerms u v tl).
-Proof.
-  intros. apply MapConsNat.
-Qed. 
-
-Lemma SubstTermsLength : forall u v f,
-    LengthNat (SubstTerms u v f) = LengthNat f.
-Proof.
-  intros. unfold SubstTerms. apply LengthMapNat.
-Qed.
-
-Lemma SubstTermsCoord : forall n u v f,
-    n < LengthNat f
-    -> CoordNat (SubstTerms u v f) n = SubstTerm u v (CoordNat f n).
-Proof.
-  intros. unfold SubstTerms.
-  apply CoordMapNat, H.
-Qed.
-
-Lemma SubstTermsDiff : forall u v p,
-    SubstTerms u v p <> p
-    -> { j:nat | j < LengthNat p /\ SubstTerm u v (CoordNat p j) <> CoordNat p j }.
-Proof.
-  intros. apply MapNatDiff in H. exact H.
-Qed.
-
 Lemma SubstTerm_op : forall u v o args,
-    SubstTerm u v (Lop o args) = Lop o (SubstTerms u v args).
+    SubstTerm u v (Lop o args)
+    = Lop o (MapNat (SubstTerm u v) args).
 Proof.
-  intros.
-  rewrite SubstTerm_opHead. 
+  intros. rewrite SubstTerm_opHead.
+  unfold Lop at 2. rewrite CoordConsTailNat, CoordConsHeadNat.
+  rewrite LengthLop.
+  replace (2 + LengthNat args - 2) with (LengthNat args).
+  apply f_equal.
   apply TruncatedEqNat.
-  - rewrite SubstLopTermLength, LengthLop, LengthLop.
-    unfold SubstTerms. rewrite LengthMapNat. reflexivity.
-  - rewrite SubstLopTermLength, LengthLop, SubstLopTermTruncated.
-    rewrite LengthLop. simpl. rewrite TailTailNat_op.
-    unfold SubstTerms. rewrite LengthMapNat, MapNatTruncated. reflexivity.
-    apply Nat.le_refl.
-  - intros. rewrite SubstLopTermLength in H.
-    destruct k.
-    rewrite SubstLopTermHead.
-    unfold Lop. rewrite CoordConsHeadNat, CoordConsHeadNat. reflexivity.
-    destruct k.
-    rewrite SubstLopTermOp.
-    unfold Lop. rewrite CoordConsTailNat, CoordConsHeadNat.
-    rewrite CoordConsTailNat, CoordConsHeadNat. reflexivity.
-    rewrite LengthLop in H.
-    apply le_S_n, le_S_n in H.
-    rewrite LengthLop.
-    change (2 + LengthNat args) with (S (S (LengthNat args))).
-    rewrite SubstLopTermCoord. 2: exact H.
-    rewrite CoordNat_op, CoordNat_op. 
-    unfold SubstTerms. rewrite CoordMapNat. reflexivity.
-    exact H. rewrite LengthLop. apply Nat.le_refl. 
-  - unfold Lop. rewrite CoordConsHeadNat. reflexivity.
+  rewrite LengthMapNat, LengthRangeNat, LengthMapNat. reflexivity.
+  rewrite LengthMapNat, MapNatTruncated.
+  rewrite LengthMapNat, MapNatTruncated. reflexivity.
+  intros k H. rewrite LengthMapNat in H.
+  rewrite CoordMapNat. 2: exact H.
+  rewrite LengthRangeNat in H.
+  rewrite CoordMapNat, CoordRangeNat, (CoordNat_op _ _ k). reflexivity.
+  exact H. exact H.
+  rewrite Nat.add_comm. rewrite Nat.add_sub. reflexivity.
+  unfold Lop. rewrite CoordConsHeadNat. reflexivity.
 Qed.
 
 Lemma SubstTerm_const : forall u v c,
@@ -307,16 +111,14 @@ Lemma SubstTerm_op1 : forall u v o a,
     SubstTerm u v (Lop1 o a) = Lop1 o (SubstTerm u v a).
 Proof.
   intros. unfold Lop1.
-  rewrite SubstTerm_op, SubstTermsConsNat.
-  reflexivity.
+  rewrite SubstTerm_op, MapConsNat, MapNilNat. reflexivity.
 Qed.
 
 Lemma SubstTerm_op2 : forall u v o a b,
     SubstTerm u v (Lop2 o a b) = Lop2 o (SubstTerm u v a) (SubstTerm u v b).
 Proof.
   intros. unfold Lop2.
-  rewrite SubstTerm_op, SubstTermsConsNat, SubstTermsConsNat.
-  reflexivity.
+  rewrite SubstTerm_op, MapConsNat, MapConsNat, MapNilNat. reflexivity.
 Qed.
 
 Lemma SubstTerm_op3 : forall u v o a b c,
@@ -324,8 +126,7 @@ Lemma SubstTerm_op3 : forall u v o a b c,
     = Lop3 o (SubstTerm u v a) (SubstTerm u v b) (SubstTerm u v c).
 Proof.
   intros. unfold Lop3.
-  rewrite SubstTerm_op.
-  do 3 rewrite SubstTermsConsNat. reflexivity.
+  rewrite SubstTerm_op, MapConsNat, MapConsNat, MapConsNat, MapNilNat. reflexivity.
 Qed.
 
 Lemma SubstTerm_not : forall u v f, SubstTerm u v (Lnot f) = 0.
@@ -355,15 +156,12 @@ Proof.
     intros. 
     rewrite SubstTerm_op.
     apply LopIsTerm.
-    intros i H0. rewrite SubstTermsLength in H0.
-    rewrite SubstTermsCoord. 2: exact H0.
-    apply IHterms. exact H0. exact H.
-    rewrite SubstTermsLength.
-    unfold SubstTerms.
-    rewrite MapNatTruncated. exact termsTrunc.
+    intros i H0. rewrite LengthMapNat in H0.
+    rewrite CoordMapNat.
+    apply IHterms. exact H0. exact H. exact H0.
+    rewrite LengthMapNat. apply MapNatTruncated.
 Qed.
-
-
+ 
 (* Substitute term u for all free occurrences of variable Xv in formula f.
    This accepts variable captures, which will be handled by IsFreeForSubst below. *)
 Definition SubstRec (u v f : nat) (rec : nat -> nat) : nat :=
@@ -380,7 +178,7 @@ Definition SubstRec (u v f : nat) (rec : nat -> nat) : nat :=
                           (if Nat.eqb (CoordNat f 1) v
                            then CoordNat f 2 (* do not substitute u for bound Xv *)
                            else rec 2)
-  | LrelHead => Lrel (CoordNat f 1) (SubstTerms u v (TailNat (TailNat f)))
+  | LrelHead => Lrel (CoordNat f 1) (MapNat (SubstTerm u v) (TailNat (TailNat f)))
   | _ => 0
   end.
 
@@ -532,7 +330,7 @@ Proof.
 Qed.
 
 Lemma Subst_rel : forall u v r args,
-    Subst u v (Lrel r args) = Lrel r (SubstTerms u v args).
+    Subst u v (Lrel r args) = Lrel r (MapNat (SubstTerm u v) args).
 Proof.
   intros. rewrite Subst_step.
   unfold TreeFoldNatRec.
@@ -548,7 +346,7 @@ Lemma Subst_rel1 : forall u v r a,
     Subst u v (Lrel1 r a) = Lrel1 r (SubstTerm u v a).
 Proof.
   intros.
-  unfold Lrel1. rewrite Subst_rel, SubstTermsConsNat.
+  unfold Lrel1. rewrite Subst_rel, MapConsNat, MapNilNat. 
   reflexivity.
 Qed.
 
@@ -558,7 +356,7 @@ Lemma Subst_rel2 : forall u v r a b,
 Proof.
   intros.
   unfold Lrel2. rewrite Subst_rel.
-  rewrite SubstTermsConsNat, SubstTermsConsNat. reflexivity.
+  rewrite MapConsNat, MapConsNat, MapNilNat. reflexivity.
 Qed.
 
 Lemma Subst_eq : forall u v a b,
@@ -579,11 +377,10 @@ Proof.
                             -> IsLproposition (Subst u v prop) = true)).
   - (* Lrel *)
     intros. rewrite Subst_rel, IsLproposition_rel.
-    split. 
-    unfold SubstTerms. rewrite LengthMapNat.
-    rewrite MapNatTruncated. exact termsTrunc.
-    intros. rewrite SubstTermsLength in H0.
-    rewrite SubstTermsCoord.
+    split. rewrite LengthMapNat.
+    apply MapNatTruncated.
+    intros n H0. rewrite LengthMapNat in H0.
+    rewrite CoordMapNat.
     apply IsSubstTermLterm.
     apply elemterms, H0. exact H. exact H0.
   - (* Lnot *)
@@ -612,11 +409,13 @@ Definition VarOccursInTerm (v t : nat) : bool := negb (Nat.eqb (SubstTerm 0 v t)
 
 Lemma VarOccursInTerm_opHead : forall v t,
     CoordNat t 0 = LopHead
-    -> (VarOccursInTerm v t = true
+    -> 2 <= LengthNat t
+    -> NthTailNat t (LengthNat t) = 0
+    -> (VarOccursInTerm v t = true    (* i.e. SubstTerm 0 v t <> t *)
        <-> exists j, j < pred (pred (LengthNat t))
               /\ VarOccursInTerm v (CoordNat t (S (S j))) = true).
 Proof.
-  intros v t H.
+  intros v t top tlen ttrunc.
   unfold VarOccursInTerm.
   rewrite Bool.negb_true_iff. split.
   - intro H0.
@@ -624,15 +423,41 @@ Proof.
     rewrite SubstTerm_step in H0.
     unfold TreeFoldNatRec in H0.
     destruct (le_lt_dec (LengthNat t) 0).
-    rewrite (CoordNatAboveLength _ _ l) in H.
+    rewrite (CoordNatAboveLength _ _ l) in top.
     discriminate.
     unfold SubstTermRec in H0.
-    rewrite H in H0.
-    apply SubstLopTermDiff in H0.
-    destruct H0 as [j [H0 H1]]. clear l.
-    exists j. split. exact H0.
-    apply Bool.negb_true_iff.
-    apply Nat.eqb_neq, H1.
+    rewrite top in H0.
+    destruct (TruncatedDiffNat (Lop (CoordNat t 1)
+         (MapNat (fun i : nat => SubstTerm 0 v (CoordNat t i))
+            (RangeNat 2 (LengthNat t - 2)))) t) as [k H].
+    rewrite LengthLop, LengthMapNat, LengthRangeNat.
+    rewrite Nat.add_comm, Nat.sub_add. reflexivity.
+    exact tlen. rewrite LengthLop.
+    rewrite LengthMapNat, LengthRangeNat, ttrunc.
+    unfold Lop. simpl. rewrite TailConsNat, TailConsNat.
+    rewrite <- (LengthRangeNat (LengthNat t - 2) 2) at 2.
+    apply MapNatTruncated. exact H0.
+    destruct H.
+    rewrite LengthLop, LengthMapNat, LengthRangeNat in H.
+    rewrite Nat.add_comm, Nat.sub_add in H. 2: exact tlen.
+    destruct k. exfalso.
+    unfold Lop in H1. rewrite CoordConsHeadNat in H1.
+    contradict H1. symmetry. exact top.
+    destruct k. 
+    unfold Lop in H1. rewrite CoordConsTailNat, CoordConsHeadNat in H1.
+    contradict H1. reflexivity.
+    assert (k < LengthNat t - 2) as H2.
+    { apply le_S_n, le_S_n.
+      change (S (S (LengthNat t - 2))) with (2+(LengthNat t -2)).
+      rewrite Nat.add_comm, Nat.sub_add. exact H. exact tlen. }
+    exists k. split.
+    rewrite Minus.pred_of_minus_stt.
+    rewrite Minus.pred_of_minus_stt. 
+    rewrite <- Nat.sub_add_distr. exact H2.
+    rewrite CoordNat_op, CoordMapNat, CoordRangeNat in H1.
+    apply Nat.eqb_neq in H1. change (2+k) with (S (S k)) in H1.
+    rewrite H1. reflexivity.
+    exact H2. rewrite LengthRangeNat. exact H2.
   - intros [j [H0 H1]].
     apply Bool.negb_true_iff, Nat.eqb_neq in H1.
     destruct (SubstTerm 0 v t =? t) eqn:des. 2: reflexivity.
@@ -640,83 +465,64 @@ Proof.
     rewrite SubstTerm_step in des.
     unfold TreeFoldNatRec in des.
     destruct (le_lt_dec (LengthNat t) 0).
-    inversion l. rewrite (CoordNatAboveLength _ _ l) in H.
-    discriminate.
-    unfold SubstTermRec in des. rewrite H in des.
-    pose proof (SubstLopTermCoord t _ j
-                                  (fun i : nat => SubstTerm 0 v (CoordNat t i))
-                                  H0 (Nat.le_refl _)).
-    destruct (LengthNat t). inversion H0.
-    destruct n. inversion H0.
-    simpl (S (S (Init.Nat.pred (Init.Nat.pred (S (S n)))))) in H2.
-    rewrite des in H2.
-    symmetry in H2. contradiction.
+    inversion l. rewrite (CoordNatAboveLength _ _ l) in top.
+    discriminate top.
+    rewrite Minus.pred_of_minus_stt in H0.
+    rewrite Minus.pred_of_minus_stt in H0.
+    rewrite <- Nat.sub_add_distr in H0. 
+    unfold SubstTermRec in des. rewrite top in des.
+    apply (f_equal (fun n => CoordNat n (S (S j)))) in des.
+    rewrite CoordNat_op, CoordMapNat, CoordRangeNat in des.
+    contradict H1. exact des. exact H0.
+    rewrite LengthRangeNat. exact H0.
 Qed.
 
 Lemma VarOccursInTerm_const : forall v c,
     VarOccursInTerm v (Lconst c) = false.
 Proof.
-  intros. pose proof (VarOccursInTerm_opHead v (Lconst c)).
-  unfold Lconst in H at 1. unfold Lop in H. rewrite CoordConsHeadNat in H.
-  specialize (H eq_refl).
-  destruct (VarOccursInTerm v (Lconst c)). 2: reflexivity.
-  exfalso.
-  destruct H as [H _]. specialize (H eq_refl) as [j [H H0]].
-  rewrite LengthLconst in H. inversion H.
+  intros. unfold Lconst.
+  apply Bool.negb_false_iff, Nat.eqb_eq.
+  rewrite SubstTerm_op. change (LengthNat NilNat) with 0. simpl.
+  rewrite MapNilNat. reflexivity.
 Qed.
 
 Lemma VarOccursInTerm_op1 : forall v o a,
     VarOccursInTerm v (Lop1 o a) = VarOccursInTerm v a.
 Proof.
-  intros. pose proof (VarOccursInTerm_opHead v (Lop1 o a)).
-  unfold Lop1 in H at 1. unfold Lop in H. rewrite CoordConsHeadNat in H.
-  specialize (H eq_refl).
-  destruct (VarOccursInTerm v (Lop1 o a)).
-  - destruct H as [H _]. specialize (H eq_refl) as [j H].
-    rewrite LengthLop1 in H. destruct H.
-    simpl in H. destruct j.
-    unfold Lop1, Lop in H0.
-    rewrite CoordConsTailNat, CoordConsTailNat, CoordConsHeadNat in H0.
-    symmetry. exact H0.
-    exfalso. apply le_S_n in H. inversion H.
-  - destruct H as [_ H]. destruct (VarOccursInTerm v a) eqn:des.
-    2: reflexivity. apply H. exists 0. split.
-    rewrite LengthLop1. apply Nat.le_refl.
-    unfold Lop1, Lop.
-    rewrite CoordConsTailNat, CoordConsTailNat, CoordConsHeadNat.
-    exact des.
+  intros. unfold VarOccursInTerm. apply f_equal.
+  unfold Lop1.
+  rewrite SubstTerm_op, MapConsNat, MapNilNat. 
+  destruct (SubstTerm 0 v a =? a) eqn:des.
+  - apply Nat.eqb_eq in des. rewrite des. apply Nat.eqb_refl.
+  - apply Nat.eqb_neq. intro abs.
+    apply (f_equal (fun n => CoordNat n 2)) in abs.
+    rewrite CoordNat_op, CoordNat_op in abs.
+    rewrite CoordConsHeadNat, CoordConsHeadNat in abs.
+    apply Nat.eqb_neq in des. contradiction.
 Qed.
 
 Lemma VarOccursInTerm_op2 : forall v o a b,
     VarOccursInTerm v (Lop2 o a b)
     = (VarOccursInTerm v a || VarOccursInTerm v b)%bool.
 Proof.
-  intros. pose proof (VarOccursInTerm_opHead v (Lop2 o a b)).
-  unfold Lop2 in H at 1. unfold Lop in H. rewrite CoordConsHeadNat in H.
-  specialize (H eq_refl).
-  destruct (VarOccursInTerm v (Lop2 o a b)).
-  - destruct H as [H _]. specialize (H eq_refl) as [j H].
-    rewrite LengthLop2 in H. destruct H. simpl in H.
-    unfold Lop2, Lop in H0.
-    rewrite CoordConsTailNat, CoordConsTailNat in H0.
-    destruct j.
-    rewrite CoordConsHeadNat in H0. rewrite H0. reflexivity.
-    destruct j.
-    rewrite CoordConsTailNat, CoordConsHeadNat in H0.
-    rewrite H0. rewrite Bool.orb_true_r. reflexivity.
-    exfalso. apply le_S_n, le_S_n in H. inversion H.
-  - destruct H as [_ H]. destruct (VarOccursInTerm v a) eqn:desa.
-    apply H. exists 0. split.
-    rewrite LengthLop2. apply le_S, Nat.le_refl.
-    unfold Lop2, Lop.
-    rewrite CoordConsTailNat, CoordConsTailNat, CoordConsHeadNat.
-    exact desa.
-    destruct (VarOccursInTerm v b) eqn:desb.
-    apply H. exists 1. split.
-    rewrite LengthLop2. apply Nat.le_refl.
-    unfold Lop2, Lop.
-    rewrite CoordConsTailNat, CoordConsTailNat, CoordConsTailNat, CoordConsHeadNat.
-    exact desb. reflexivity.
+  intros. unfold VarOccursInTerm. 
+  unfold Lop2. rewrite SubstTerm_op.
+  rewrite MapConsNat, MapConsNat, MapNilNat.
+  destruct (SubstTerm 0 v a =? a) eqn:des.
+  - simpl. apply f_equal. apply Nat.eqb_eq in des. rewrite des. clear des.
+    destruct (SubstTerm 0 v b =? b) eqn:des.
+    + apply Nat.eqb_eq in des. rewrite des. apply Nat.eqb_refl.
+    + apply Nat.eqb_neq. intro abs.
+      apply (f_equal (fun n => CoordNat n 3)) in abs.
+      rewrite CoordNat_op, CoordNat_op in abs.
+      rewrite CoordConsTailNat, CoordConsHeadNat in abs.
+      rewrite CoordConsTailNat, CoordConsHeadNat in abs.
+      apply Nat.eqb_neq in des. contradiction.
+  - apply Bool.negb_true_iff. apply Nat.eqb_neq. intro abs.
+    apply (f_equal (fun n => CoordNat n 2)) in abs.
+    rewrite CoordNat_op, CoordNat_op in abs.
+    rewrite CoordConsHeadNat, CoordConsHeadNat in abs.
+    apply Nat.eqb_neq in des. contradiction.
 Qed.
 
 Lemma VarOccursInTerm_var : forall v t,
@@ -904,31 +710,32 @@ Proof.
 Qed.
 
 Lemma VarOccursFreeInFormula_rel : forall v r args,
-    VarOccursFreeInFormula v (Lrel r args) = true
-    <-> (exists j, j < LengthNat args /\ VarOccursInTerm v (CoordNat args j) = true).
+    NthTailNat args (LengthNat args) = 0 ->
+    (VarOccursFreeInFormula v (Lrel r args) = true
+     <-> (exists j, j < LengthNat args /\ VarOccursInTerm v (CoordNat args j) = true)).
 Proof.
-  intros v r args.
+  intros v r args argstrunc.
   split.
   - intro H. unfold VarOccursFreeInFormula in H.
     apply Bool.negb_true_iff, Nat.eqb_neq in H.
     rewrite Subst_rel in H.
-    assert (SubstTerms 0 v args <> args).
+    assert (MapNat (SubstTerm 0 v) args <> args).
     { intro abs. rewrite abs in H. apply H. reflexivity. } clear H.
-    apply SubstTermsDiff in H0.
+    apply MapNatDiff in H0.
     destruct H0. exists x. destruct a.
     split. exact H.
-    apply Bool.negb_true_iff, Nat.eqb_neq, H0.
+    apply Bool.negb_true_iff, Nat.eqb_neq, H0. exact argstrunc.
   - intros [j [H H0]]. unfold VarOccursFreeInFormula.
     apply Bool.negb_true_iff, Nat.eqb_neq.
     intro abs. rewrite Subst_rel in abs.
     unfold VarOccursInTerm in H0.
     apply Bool.negb_true_iff, Nat.eqb_neq in H0.
     contradict H0.
-    assert (CoordNat (Lrel r (SubstTerms 0 v args)) (2+j)
+    assert (CoordNat (Lrel r (MapNat (SubstTerm 0 v) args)) (2+j)
             = CoordNat (Lrel r args) (2+j))
       by (rewrite abs; reflexivity).
     rewrite (CoordNat_rel _ _ j), (CoordNat_rel _ _ j) in H0.
-    rewrite SubstTermsCoord in H0.
+    rewrite CoordMapNat in H0.
     exact H0. exact H. 
 Qed.
 
@@ -937,65 +744,36 @@ Lemma VarOccursFreeInFormula_rel2 : forall v r a b,
     = (VarOccursInTerm v a || VarOccursInTerm v b)%bool.
 Proof.
   intros. unfold Lrel2.
-  pose proof (VarOccursFreeInFormula_rel v r (ConsNat a (ConsNat b NilNat))).
-  destruct (VarOccursFreeInFormula v (Lrel r (ConsNat a (ConsNat b NilNat)))).
-  - destruct H as [H _]. specialize (H eq_refl) as [j [H H0]].
-    rewrite LengthConsNat, LengthConsNat in H.
-    destruct j.
-    rewrite CoordConsHeadNat in H0. rewrite H0. reflexivity.
-    destruct j.
-    rewrite CoordConsTailNat, CoordConsHeadNat in H0. rewrite H0.
-    rewrite Bool.orb_true_r. reflexivity.
-    exfalso. apply le_S_n, le_S_n in H. inversion H.
-  - destruct H as [_ H].
-    destruct (VarOccursInTerm v a) eqn:desa.
-    exfalso. assert (false = true). 2: discriminate.
-    apply H. exists 0. split.
-    rewrite LengthConsNat, LengthConsNat. apply le_n_S, le_0_n.
-    rewrite CoordConsHeadNat. exact desa.
-    destruct (VarOccursInTerm v b) eqn:desb. 2: reflexivity.
-    exfalso. assert (false = true). 2: discriminate.
-    apply H. exists 1. split.
-    rewrite LengthConsNat, LengthConsNat. apply le_n_S, le_n_S, le_0_n.
-    rewrite CoordConsTailNat, CoordConsHeadNat. exact desb.
+  unfold VarOccursFreeInFormula.
+  rewrite Subst_rel, MapConsNat, MapConsNat, MapNilNat.
+  unfold VarOccursInTerm.
+  destruct (SubstTerm 0 v a =? a) eqn:des.
+  - simpl. apply f_equal.
+    apply Nat.eqb_eq in des. rewrite des. clear des.
+    destruct (SubstTerm 0 v b =? b) eqn:des.
+    + apply Nat.eqb_eq in des. rewrite des. apply Nat.eqb_refl.
+    + apply Nat.eqb_neq. intro abs.
+      apply (f_equal (fun n => CoordNat n 3)) in abs.
+      rewrite CoordNat_rel, CoordNat_rel in abs.
+      rewrite CoordConsTailNat, CoordConsTailNat in abs.
+      rewrite CoordConsHeadNat, CoordConsHeadNat in abs.
+      apply Nat.eqb_neq in des. contradiction.
+  - apply Bool.negb_true_iff, Nat.eqb_neq. intro abs.
+    apply (f_equal (fun n => CoordNat n 2)) in abs.
+    rewrite CoordNat_rel, CoordNat_rel in abs.
+    rewrite CoordConsHeadNat, CoordConsHeadNat in abs.
+    apply Nat.eqb_neq in des. contradiction.
 Qed.
 
-Lemma SubstTerms_nosubst : forall u v terms : nat,
-    (forall j, j < LengthNat terms -> SubstTerm u v (CoordNat terms j) = CoordNat terms j)
-    -> SubstTerms u v terms = terms.
-Proof.
-  intros. unfold SubstTerms.
-  rewrite (MapNatExt _ (fun x => x)). apply MapIdNat.
-  intros. apply H, H0.
-Qed.
-
-Lemma SubstLopTerm_nosubst : forall u v i t : nat,
-    (forall j, j < pred (pred i)
-          -> SubstTerm u v (CoordNat t (S (S j))) = CoordNat t (S (S j)))
-    -> SubstLopTerm t i (fun j : nat => SubstTerm u v (CoordNat t j)) = t.
-Proof.
-  induction i.
-  - reflexivity.
-  - intros. simpl.
-    destruct i. reflexivity.
-    destruct i. reflexivity.
-    rewrite IHi. rewrite H.
-    apply SetCoordIdemNat. simpl.
-    apply Nat.le_refl.
-    intros. apply H.
-    apply le_S, H0.
-Qed.
-
-Lemma SubstTerm_nosubst : forall v u t,
-    VarOccursInTerm v t = false
+Lemma SubstTerm_nosubst : forall v t u,
+    VarOccursInTerm v t = false    (* i.e. SubstTerm 0 v t = t *)
     -> SubstTerm u v t = t.
 Proof.
-  intros v u.
-  apply (Fix lt_wf (fun t =>
+  intros v.
+  apply (Fix lt_wf (fun t => forall u,
     VarOccursInTerm v t = false
     -> SubstTerm u v t = t)).
-  intros t IHt nosubst.
-  pose proof nosubst as nosubst_bis.
+  intros t IHt u nosubst.
   rewrite SubstTerm_step.
   unfold TreeFoldNatRec.
   apply Bool.negb_false_iff, Nat.eqb_eq in nosubst.
@@ -1008,14 +786,18 @@ Proof.
   do 7 (destruct n; [exact nosubst|]).
   destruct n.
   - (* Lop *)
-    apply (SubstLopTerm_nosubst u v (LengthNat t)).
-    intros j H. apply IHt.
+    rewrite <- nosubst at 3. apply f_equal.
+    apply MapNatExt. intros k H.
+    rewrite LengthRangeNat in H.
+    rewrite CoordRangeNat. 2: exact H.
+    apply (f_equal (fun a => CoordNat a (S (S k)))) in nosubst.
+    rewrite CoordNat_op, CoordMapNat, CoordRangeNat in nosubst.
+    rewrite nosubst. apply IHt.
     exact (CoordLower _ _ (LengthPositive _ l)).
-    destruct (VarOccursInTerm v (CoordNat t (S (S j)))) eqn:des.
-    2: reflexivity.
-    pose proof (VarOccursInTerm_opHead v t headT) as [_ H1].
-    rewrite nosubst_bis in H1. symmetry.
-    apply H1. exists j. split. exact H. exact des.
+    unfold VarOccursInTerm. change (S (S k)) with (2+k).
+    rewrite nosubst, Nat.eqb_refl. reflexivity.
+    exact H.
+    rewrite LengthRangeNat. exact H.
   - (* Lvariable *)
     destruct n. 2: exact nosubst.
     destruct (CoordNat t 1 =? v). 2: reflexivity.
@@ -1138,27 +920,22 @@ Proof.
   clear IHf.
   rewrite <- nosubst at 3.
   apply f_equal.
-  assert (forall j : nat,
-  j < pred (pred (LengthNat f)) ->
-  SubstTerm 0 v (CoordNat (TailNat (TailNat f)) j) = CoordNat (TailNat (TailNat f)) j)
-  as H.
-  { intros j H. symmetry.
-    rewrite <- nosubst at 1.
-    rewrite CoordTailNat, CoordTailNat.
-    rewrite CoordNat_rel.
-    rewrite SubstTermsCoord.
-    reflexivity. rewrite LengthTailNat, LengthTailNat. exact H. }
-  rewrite SubstTerms_nosubst.
-  rewrite SubstTerms_nosubst.
-  reflexivity.
-  intros j H0. symmetry.
-  rewrite <- nosubst at 1.
+  assert (MapNat (SubstTerm 0 v) (TailNat (TailNat f)) = TailNat (TailNat f)) as H.
+  { apply (f_equal (fun n => TailNat (TailNat n))) in nosubst.
+    unfold Lrel in nosubst.
+    rewrite TailConsNat, TailConsNat in nosubst. exact nosubst. }
+  rewrite H.
+  apply TruncatedEqNat.
+  rewrite LengthMapNat. reflexivity.
+  rewrite LengthMapNat, MapNatTruncated.
+  rewrite <- H at 1. rewrite MapNatTruncated. reflexivity.
+  intros j H0. rewrite LengthMapNat in H0.
+  rewrite CoordMapNat. 2: exact H0.
   rewrite CoordTailNat, CoordTailNat.
-  unfold Lrel. rewrite CoordConsTailNat, CoordConsTailNat.
-  rewrite SubstTermsCoord. reflexivity.
-  exact H0. intros. apply SubstTerm_nosubst.
-  unfold VarOccursInTerm. rewrite H, Nat.eqb_refl. reflexivity.
-  rewrite LengthTailNat, LengthTailNat in H0. exact H0.
+  rewrite SubstTerm_nosubst. reflexivity.
+  apply Bool.negb_false_iff, Nat.eqb_eq.
+  apply (f_equal (fun n => CoordNat n (S (S j)))) in nosubst.
+  rewrite CoordNat_rel, CoordMapNat in nosubst. exact nosubst. exact H0.
 Qed.
 
 Lemma SubstSubstTermNested : forall term,
@@ -1175,32 +952,31 @@ Proof.
     rewrite SubstTerm_var, Nat.eqb_sym, H. reflexivity.
   - (* Lop *)
     intros. rewrite SubstTerm_op, SubstTerm_op, SubstTerm_op.
-    apply f_equal. unfold SubstTerms.
-    rewrite MapMapNat. apply MapNatExt.
-    intros n H0.
-    apply IHterms. exact H0.
-    destruct (VarOccursInTerm v (CoordNat terms n)) eqn:des. 2: reflexivity.
-    pose proof (VarOccursInTerm_opHead v (Lop o terms)) as H1.
-    rewrite H in H1. symmetry. apply H1.
-    unfold Lop. rewrite CoordConsHeadNat. reflexivity.
-    exists n. split. rewrite LengthLop. exact H0.
-    rewrite CoordNat_op. exact des.
+    apply f_equal. rewrite MapMapNat.
+    apply MapNatExt.
+    intros n H0. apply IHterms. exact H0.
+    apply Bool.negb_false_iff, Nat.eqb_eq in H.
+    apply Bool.negb_false_iff, Nat.eqb_eq.
+    rewrite SubstTerm_op in H.
+    apply (f_equal (fun a => CoordNat a (S (S n)))) in H.
+    rewrite CoordNat_op, CoordNat_op, CoordMapNat in H. exact H. exact H0.
 Qed.
 
 Lemma SubstTermsNested : forall (r terms t u v w : nat),
     (forall i : nat, i < LengthNat terms -> IsLterm (CoordNat terms i) = true)
     -> VarOccursFreeInFormula v (Lrel r terms) = false
-    -> SubstTerms t v (SubstTerms u w terms) = SubstTerms (SubstTerm t v u) w terms.
+    -> MapNat (SubstTerm t v) (MapNat (SubstTerm u w) terms)
+      = MapNat (SubstTerm (SubstTerm t v u) w) terms.
 Proof.
-  intros.
-  unfold SubstTerms. rewrite MapMapNat.
+  intros. rewrite MapMapNat.
   apply MapNatExt. intros j H1.
   rewrite SubstSubstTermNested. reflexivity.
   apply H. exact H1.
-  destruct (VarOccursInTerm v (CoordNat terms j)) eqn:des. 2: reflexivity.
-  pose proof (VarOccursFreeInFormula_rel v r terms) as [_ H2].
-  rewrite H0 in H2. symmetry. apply H2. exists j.
-  split. exact H1. exact des.
+  apply Bool.negb_false_iff, Nat.eqb_eq in H0.
+  apply Bool.negb_false_iff, Nat.eqb_eq.
+  rewrite Subst_rel in H0.
+  apply (f_equal (fun a => CoordNat a (S (S j)))) in H0.
+  rewrite CoordNat_rel, CoordNat_rel, CoordMapNat in H0. exact H0. exact H1.
 Qed.
 
 Lemma VarOccursInTermVarChange : forall term,
@@ -1223,37 +999,47 @@ Proof.
       destruct b. 2: reflexivity. apply H1. reflexivity. }
     apply H0. clear H0.
     rewrite VarOccursInTerm_opHead, VarOccursInTerm_opHead.
-    rewrite SubstTerm_op, LengthLop, SubstTermsLength, LengthLop.
+    rewrite SubstTerm_op, LengthLop, LengthMapNat, LengthLop.
     split; intros [j [H0 H1]]; exists j; split.
     + exact H0.
-    + rewrite CoordNat_op, SubstTermsCoord in H1. rewrite CoordNat_op.
-      simpl in H0. 2: exact H0.
-      specialize (IHterms j H0) as [_ IHterms]. rewrite IHterms in H1.
+    + simpl in H0.
+      rewrite CoordNat_op, CoordMapNat in H1.
+      2: exact H0.
+      rewrite CoordNat_op.
+      specialize (IHterms j H0) as [_ IHterms].
+      rewrite IHterms in H1.
       exact H1.
-      destruct (VarOccursInTerm v (CoordNat terms j)) eqn:des.
-      2: reflexivity.
-      pose proof (VarOccursInTerm_opHead v (Lop o terms)).
-      rewrite H in H2. symmetry. apply H2.
-      unfold Lop. rewrite CoordConsHeadNat. reflexivity.
-      exists j. split. rewrite LengthLop. exact H0.
-      rewrite CoordNat_op. exact des.
+      apply Bool.negb_false_iff, Nat.eqb_eq in H.
+      apply (f_equal (fun a => CoordNat a (S (S j)))) in H.
+      apply Bool.negb_false_iff, Nat.eqb_eq.
+      rewrite CoordNat_op, SubstTerm_op, CoordNat_op in H.
+      rewrite CoordMapNat in H.
+      exact H. exact H0. 
     + exact H0.
-    + rewrite CoordNat_op, SubstTermsCoord. 2: exact H0.
+    + simpl in H0.
+      rewrite CoordNat_op, CoordMapNat. 2: exact H0.
       rewrite CoordNat_op in H1.
       specialize (IHterms j H0) as [_ IHterms]. rewrite IHterms.
       exact H1.
-      destruct (VarOccursInTerm v (CoordNat terms j)) eqn:des.
-      2: reflexivity.
-      pose proof (VarOccursInTerm_opHead v (Lop o terms)).
-      rewrite H in H2. symmetry. apply H2.
-      unfold Lop. rewrite CoordConsHeadNat. reflexivity.
-      exists j. split. rewrite LengthLop. exact H0.
-      rewrite CoordNat_op. exact des.
+      apply Bool.negb_false_iff, Nat.eqb_eq in H.
+      apply (f_equal (fun a => CoordNat a (S (S j)))) in H.
+      apply Bool.negb_false_iff, Nat.eqb_eq.
+      rewrite CoordNat_op, SubstTerm_op, CoordNat_op in H.
+      rewrite CoordMapNat in H.
+      exact H. exact H0. 
     + unfold Lop. rewrite CoordConsHeadNat. reflexivity. 
-    + rewrite SubstTerm_op.
-      unfold Lop. rewrite CoordConsHeadNat. reflexivity. 
-Qed.
-
+    + change 2 with (2+0). rewrite LengthLop.
+      apply Nat.add_le_mono_l, le_0_n.
+    + rewrite LengthLop. unfold Lop.
+      simpl. rewrite TailConsNat, TailConsNat. exact termsTrunc.
+    + rewrite SubstTerm_op. unfold Lop.
+      rewrite CoordConsHeadNat. reflexivity.
+    + change 2 with (2+0). rewrite SubstTerm_op, LengthLop.
+      apply Nat.add_le_mono_l, le_0_n.
+    + rewrite SubstTerm_op, LengthLop, LengthMapNat.
+      simpl. unfold Lop at 1; rewrite TailConsNat, TailConsNat.
+      apply MapNatTruncated.
+Qed. 
 
 Fixpoint MaxVarLopTerm (t i : nat) (rec : nat -> nat) {struct i} : nat :=
   match i with
@@ -1378,6 +1164,10 @@ Proof.
     symmetry. exact H2.
     rewrite CoordNat_op in H0. apply le_n_S. exact H0.
     unfold Lop. rewrite CoordConsHeadNat. reflexivity.
+    change 2 with (2+0). rewrite LengthLop.
+    apply Nat.add_le_mono_l, le_0_n.
+    rewrite LengthLop. unfold Lop. simpl.
+    rewrite TailConsNat, TailConsNat. exact termsTrunc. 
 Qed.
 
 Lemma SubstAboveMaxVarTerm : forall u v t,
@@ -1567,7 +1357,7 @@ Proof.
     rewrite occur in H1. apply H1.
     refine (Nat.le_lt_trans _ _ _ _ H).
     apply MaxVar_rel_lower, des.
-    apply elemterms, des.
+    apply elemterms, des. exact termsTrunc.
   - (* Lnot *)
     intros.
     rewrite VarOccursFreeInFormula_not.
@@ -1620,35 +1410,38 @@ Proof.
   destruct (CoordNat term 0) eqn:headTerm. apply le_0_n.
   do 7 (destruct n; [apply le_0_n|]).
   destruct n.
-  (* Lop *)
-  rewrite MaxVarTerm_opHead, SubstLopTermLength.
-  2: rewrite SubstLopTermHead; assumption.
-  apply MaxVarLopTerm_spec. intros j H.
-  destruct (LengthNat term) eqn:lenTerm. inversion H.
-  destruct n. inversion H. 
-  rewrite SubstLopTermCoord. 2: exact H.
-  2: rewrite lenTerm; apply Nat.le_refl.
-  apply (Nat.le_trans _ (Nat.max (MaxVarTerm u) (MaxVarTerm (CoordNat term (S (S j)))))).
-  apply IHterm.
-  rewrite <- lenTerm in l.
-  exact (CoordLower _ _ (LengthPositive _ l)).
-  apply Nat.max_lub. apply Nat.le_max_l.
-  refine (Nat.le_trans _ _ _ _ (Nat.le_max_r _ _)).
-  destruct (le_lt_dec (MaxVarTerm (CoordNat term (S (S j))))
-                      (MaxVarLopTerm term (S (S n)) (fun i : nat => MaxVarTerm (CoordNat term i)))).
-  exact l0. exfalso.
-  destruct (MaxVarTerm (CoordNat term (S (S j)))) eqn:des. inversion l0.
-  apply le_S_n in l0. rewrite MaxVarLopTerm_spec in l0.
-  specialize (l0 j H). rewrite des in l0.
-  exact (Nat.lt_irrefl _ l0).
-  destruct n.
-  (* Lvar *)
-  2: apply le_0_n.
-  destruct (CoordNat term 1 =? v). apply Nat.le_max_l.
-  rewrite MaxVarTerm_step.
-  unfold TreeFoldNatRec.
-  destruct (le_lt_dec (LengthNat term) 0). apply le_0_n.
-  unfold MaxVarTermRec. rewrite headTerm. apply Nat.le_max_r.
+  - (* Lop *)
+    rewrite MaxVarTerm_opHead, LengthLop, LengthMapNat, LengthRangeNat.
+    2: unfold Lop; rewrite CoordConsHeadNat; reflexivity.
+    apply MaxVarLopTerm_spec. intros j H.
+    simpl in H.
+    destruct (LengthNat term) eqn:lenTerm. inversion H.
+    destruct n. inversion H. 
+    rewrite CoordNat_op, CoordMapNat.
+    2: rewrite LengthRangeNat; exact H.
+    rewrite CoordRangeNat. 2: exact H.
+    apply (Nat.le_trans _ (Nat.max (MaxVarTerm u) (MaxVarTerm (CoordNat term (S (S j)))))).
+    apply IHterm.
+    rewrite <- lenTerm in l.
+    exact (CoordLower _ _ (LengthPositive _ l)).
+    apply Nat.max_lub. apply Nat.le_max_l.
+    refine (Nat.le_trans _ _ _ _ (Nat.le_max_r _ _)).
+    destruct (le_lt_dec (MaxVarTerm (CoordNat term (S (S j))))
+                        (MaxVarLopTerm term (S (S n)) (fun i : nat => MaxVarTerm (CoordNat term i)))).
+    exact l0. exfalso.
+    destruct (MaxVarTerm (CoordNat term (S (S j)))) eqn:des. inversion l0.
+    apply le_S_n in l0. rewrite MaxVarLopTerm_spec in l0.
+    simpl in H. rewrite Nat.sub_0_r in H.
+    specialize (l0 j H). rewrite des in l0.
+    exact (Nat.lt_irrefl _ l0).
+  - (* Lvar *)
+    destruct n.
+    2: apply le_0_n.
+    destruct (CoordNat term 1 =? v). apply Nat.le_max_l.
+    rewrite MaxVarTerm_step.
+    unfold TreeFoldNatRec.
+    destruct (le_lt_dec (LengthNat term) 0). apply le_0_n.
+    unfold MaxVarTermRec. rewrite headTerm. apply Nat.le_max_r.
 Qed.
 
 (* If u is closed and v is the greatest variable of f, the inequality is strict. *)
@@ -1738,9 +1531,8 @@ Proof.
   rewrite <- (MaxVar_rel (CoordNat prop 1)).
   rewrite MaxVar_rel, MaxVarTerm_op.
   apply MaxVarLopTerm_spec. intros j H.
-  simpl in H. rewrite SubstTermsLength in H.
-  unfold Lop at 1. rewrite CoordConsTailNat, CoordConsTailNat.
-  rewrite SubstTermsCoord. 2: exact H.
+  simpl in H. rewrite LengthMapNat in H.
+  rewrite CoordNat_op, CoordMapNat. 2: exact H.
   apply (Nat.le_trans _ _ _ (MaxVarTerm_Subst _ _ _)).
   apply Nat.max_lub. apply Nat.le_max_l. 
   refine (Nat.le_trans _ _ _ _ (Nat.le_max_r _ _)). clear u.
@@ -1770,24 +1562,26 @@ Proof.
   - (* Lop *)
     rewrite SubstTerm_step, SubstTerm_step.
     unfold TreeFoldNatRec.
-    rewrite SubstLopTermLength, SubstLopTermLength.
-    destruct (le_lt_dec (LengthNat f) 0). reflexivity. clear l0.
-    unfold SubstTermRec.
-    rewrite SubstLopTermHead, headF.
-    rewrite SubstLopTermHead, headF.
-    rewrite SubstLopTermLength, SubstLopTermLength.
-    rewrite SubstSubstLopTerm, SubstSubstLopTerm.
-    apply SubstLopTermExt.
-    intros n Hn.
-    destruct (LengthNat f) eqn:lenF. inversion Hn.
-    destruct n0. inversion Hn.
-    rewrite (SubstLopTermCoord _ _ _ _ Hn).
-    rewrite (SubstLopTermCoord _ _ _ _ Hn).
-    apply IHf. rewrite <- lenF in l.
-    apply (CoordLower _ _ (LengthPositive _ l)).
-    exact H. exact H0. exact H1.
-    rewrite lenF. apply Nat.le_refl.
-    rewrite lenF. apply Nat.le_refl.
+    rewrite LengthLop, LengthMapNat, LengthRangeNat.
+    rewrite LengthLop, LengthMapNat, LengthRangeNat.
+    simpl.
+    unfold SubstTermRec; unfold Lop at 1; rewrite CoordConsHeadNat.
+    unfold Lop at 5; rewrite CoordConsHeadNat.
+    rewrite LengthLop, LengthLop, LengthMapNat, LengthMapNat.
+    rewrite LengthRangeNat. simpl. rewrite Nat.sub_0_r.
+    apply f_equal2. unfold Lop.
+    rewrite CoordConsTailNat, CoordConsTailNat.
+    rewrite CoordConsHeadNat, CoordConsHeadNat. reflexivity.
+    apply MapNatExt.
+    intros n Hn. rewrite LengthRangeNat in Hn.
+    rewrite CoordRangeNat. 2: exact Hn.
+    rewrite (CoordNat_op _ _ n), (CoordNat_op _ _ n).
+    rewrite CoordMapNat, CoordMapNat.
+    rewrite CoordRangeNat. apply IHf.
+    exact (CoordLower _ _ (LengthPositive _ l)).
+    exact H. exact H0. exact H1. exact Hn.
+    rewrite LengthRangeNat. exact Hn.
+    rewrite LengthRangeNat. exact Hn.
   - (* Lvar *)
     destruct n. 2: reflexivity.
     destruct (CoordNat f 1 =? w) eqn:des1.
@@ -1808,10 +1602,10 @@ Lemma SubstSubstTermsDiffCommutes : forall f v w t u,
     v <> w
     -> VarOccursInTerm w t = false
     -> VarOccursInTerm v u = false
-    -> SubstTerms t v (SubstTerms u w f)
-      = SubstTerms u w (SubstTerms t v f).
+    -> MapNat (SubstTerm t v) (MapNat (SubstTerm u w) f)
+      = MapNat (SubstTerm u w) (MapNat (SubstTerm t v) f).
 Proof.
-  intros. unfold SubstTerms.
+  intros.
   rewrite MapMapNat, MapMapNat. apply MapNatExt. intros k H2.
   rewrite (SubstSubstTermDiffCommutes _ _ _ _ _ H H0 H1). reflexivity.
 Qed.
@@ -1829,7 +1623,7 @@ Proof.
   Subst t v (Subst u w f) = Subst u w (Subst t v f))).
   intros f IHf v w t u H. intros.
   rewrite (Subst_step _ _ f).
-  rewrite (Subst_step _ _ f).
+  rewrite (Subst_step t v f).
   unfold TreeFoldNatRec.
   destruct (le_lt_dec (LengthNat f) 0).
   unfold Subst. rewrite TreeFoldNat_nil, TreeFoldNat_nil.
@@ -1928,17 +1722,18 @@ Proof.
   do 7 (destruct n; [reflexivity|]). destruct n.
   - (* Lop *)
     rewrite SubstTerm_opHead.
-    2: rewrite SubstLopTermHead; exact headU.
-    rewrite SubstLopTermLength, SubstSubstLopTerm.
-    apply SubstLopTermExt.
-    intros n H.
-    destruct (LengthNat u) eqn:lenU. inversion l. simpl in H.
-    destruct n0. inversion H. simpl in H.
-    rewrite SubstLopTermCoord. 2: exact H.
+    2: unfold Lop; rewrite CoordConsHeadNat; reflexivity.
+    apply f_equal2.
+    unfold Lop. rewrite CoordConsTailNat, CoordConsHeadNat. reflexivity. 
+    rewrite LengthLop, LengthMapNat, LengthRangeNat. simpl.
+    rewrite Nat.sub_0_r.
+    apply MapNatExt.
+    intros n H. rewrite LengthRangeNat in H.
+    rewrite CoordRangeNat, (CoordNat_op _ _ n). 2: exact H.
+    rewrite CoordMapNat, CoordRangeNat.
     apply IHu.
-    rewrite <- lenU in l.
-    exact (CoordLower _ _ (LengthPositive _ l)). 
-    rewrite lenU. apply Nat.le_refl.
+    exact (CoordLower _ _ (LengthPositive _ l)). exact H.
+    rewrite LengthRangeNat. exact H.
   - (* Lvar *)
     destruct n. 2: reflexivity.
     destruct (CoordNat u 1 =? w) eqn:des2. reflexivity.
@@ -1949,9 +1744,10 @@ Proof.
 Qed.
 
 Lemma SubstSubstTermsIdem : forall (terms t u v : nat),
-    SubstTerms u v (SubstTerms t v terms) = SubstTerms (SubstTerm u v t) v terms.
+    MapNat (SubstTerm u v) (MapNat (SubstTerm t v) terms)
+    = MapNat (SubstTerm (SubstTerm u v t) v) terms.
 Proof.
-  intros. unfold SubstTerms.
+  intros. 
   rewrite MapMapNat. apply MapNatExt. intros k H0.
   apply SubstSubstTermIdem.
 Qed.
@@ -1962,7 +1758,7 @@ Proof.
   apply (Fix lt_wf (fun prop => forall t u v,
                         Subst u v (Subst t v prop) = Subst (SubstTerm u v t) v prop)).
   intros prop IHprop t u v.
-  rewrite (Subst_step _ _ prop), (Subst_step _ _ prop).
+  rewrite (Subst_step _ _ prop). rewrite (Subst_step (SubstTerm u v t) v prop).
   unfold TreeFoldNatRec.
   destruct (le_lt_dec (LengthNat prop) 0).
   reflexivity. unfold SubstRec.
@@ -2033,13 +1829,22 @@ Proof.
   - intros. apply VarOccursInTerm_opHead in H0.
     rewrite SubstTerm_op. apply VarOccursInTerm_opHead.
     unfold Lop. rewrite CoordConsHeadNat. reflexivity.
-    rewrite LengthLop, SubstTermsLength. simpl.
+    change 2 with (2+0). rewrite LengthLop, LengthMapNat.
+    apply Nat.add_le_mono_l, le_0_n.
+    rewrite LengthLop, LengthMapNat. unfold Lop.
+    simpl. rewrite TailConsNat, TailConsNat.
+    apply MapNatTruncated.
     destruct H0 as [j [H0 H1]]. rewrite LengthLop in H0.
-    exists j. split. exact H0.
-    rewrite CoordNat_op, SubstTermsCoord. rewrite CoordNat_op in H1.
+    exists j. split. rewrite LengthLop, LengthMapNat. exact H0.
+    rewrite CoordNat_op, CoordMapNat.
+    rewrite CoordNat_op in H1.
     apply IHterms. exact H0. exact H.
     exact H1. exact H0.
     unfold Lop. rewrite CoordConsHeadNat. reflexivity. 
+    change 2 with (2+0). rewrite LengthLop.
+    apply Nat.add_le_mono_l, le_0_n.
+    rewrite LengthLop. simpl. unfold Lop.
+    rewrite TailConsNat, TailConsNat. exact termsTrunc.
 Qed.
 
 Lemma VarOccursFreeInFormula_SubstDiff : forall prop t v w,
@@ -2055,12 +1860,13 @@ Proof.
   v <> w ->
   VarOccursFreeInFormula v prop = true ->
   VarOccursFreeInFormula v (Subst t w prop) = true)).
-  - intros. rewrite Subst_rel, VarOccursFreeInFormula_rel, SubstTermsLength.
+  - intros. rewrite Subst_rel, VarOccursFreeInFormula_rel, LengthMapNat.
     apply VarOccursFreeInFormula_rel in H0.
     destruct H0 as [j [H1 H2]]. exists j. split. exact H1.
-    rewrite SubstTermsCoord. 2: exact H1. 
+    rewrite CoordMapNat. 2: exact H1. 
     apply VarOccursInTerm_SubstDiff. apply elemterms. exact H1.
-    exact H. exact H2.
+    exact H. exact H2. exact termsTrunc.
+    rewrite LengthMapNat. apply MapNatTruncated.
   - intros. rewrite Subst_not, VarOccursFreeInFormula_not.
     apply IHprop. exact H.
     rewrite VarOccursFreeInFormula_not in H0. exact H0.
@@ -2111,35 +1917,32 @@ Proof.
   unfold SubstTermRec. unfold SubstTermRec in H.
   destruct (CoordNat u 0) eqn:headU. reflexivity.
   do 7 (destruct n; [reflexivity|]). destruct n.
-  (* Lop *)
-  apply Nat.eqb_eq in H.
-  pose proof (VarOccursInTerm_opHead v (SubstLopTerm u (LengthNat u) (fun i : nat => SubstTerm t w (CoordNat u i)))).
-  destruct (VarOccursInTerm v
-                            (SubstLopTerm u (LengthNat u) (fun i : nat => SubstTerm t w (CoordNat u i)))).
-  2: reflexivity. exfalso. destruct H1 as [H1 _].
-  rewrite SubstLopTermHead. exact headU. specialize (H1 eq_refl) as [j [H1 H2]].
-  rewrite SubstLopTermLength in H1.
-  destruct (LengthNat u) eqn:lenU. inversion l. simpl in H1. 
-  destruct n. inversion H1. simpl in H1.
-  rewrite (SubstLopTermCoord u) in H2. 2: exact H1.
-  2: rewrite lenU; apply Nat.le_refl.
-  rewrite IHu in H2. discriminate H2.
-  rewrite <- lenU in l.
-  exact (CoordLower _ _ (LengthPositive _ l)). 2: exact H0.
-  apply Bool.negb_false_iff.
-  rewrite <- H at 2. rewrite SubstLopTermCoord. apply Nat.eqb_refl.
-  exact H1. rewrite lenU. apply Nat.le_refl.
-  (* Lvar *)
-  clear IHu. destruct n. 2: reflexivity.
-  destruct (CoordNat u 1 =? w). exact H0. clear w.
-  destruct (CoordNat u 1 =? v) eqn:des.
-  apply Nat.eqb_eq in H. rewrite <- H. reflexivity. clear H.
-  apply Bool.negb_false_iff.
-  rewrite SubstTerm_step.
-  unfold TreeFoldNatRec.
-  destruct (le_lt_dec (LengthNat u) 0). exfalso.
-  inversion l0. rewrite H1 in l. inversion l.
-  unfold SubstTermRec. rewrite headU, des. apply Nat.eqb_refl.
+  - (* Lop *)
+    apply Nat.eqb_eq in H.
+    apply Bool.negb_false_iff, Nat.eqb_eq.
+    rewrite SubstTerm_op. apply f_equal.
+    rewrite MapMapNat.
+    apply MapNatExt. intros k H1.
+    rewrite LengthRangeNat in H1.
+    rewrite CoordRangeNat. 2: exact H1.
+    apply (f_equal (fun a => CoordNat a (S (S k)))) in H.
+    rewrite CoordNat_op in H.
+    rewrite CoordMapNat, CoordRangeNat in H.
+    apply Nat.eqb_eq, Bool.negb_false_iff. apply IHu.
+    exact (CoordLower _ _ (LengthPositive _ l)).
+    apply Bool.negb_false_iff, Nat.eqb_eq. exact H. exact H0.
+    exact H1. rewrite LengthRangeNat. exact H1.
+  - (* Lvar *)
+    clear IHu. destruct n. 2: reflexivity.
+    destruct (CoordNat u 1 =? w). exact H0. clear w.
+    destruct (CoordNat u 1 =? v) eqn:des.
+    apply Nat.eqb_eq in H. rewrite <- H. reflexivity. clear H.
+    apply Bool.negb_false_iff.
+    rewrite SubstTerm_step.
+    unfold TreeFoldNatRec.
+    destruct (le_lt_dec (LengthNat u) 0). exfalso.
+    inversion l0. rewrite H1 in l. inversion l.
+    unfold SubstTermRec. rewrite headU, des. apply Nat.eqb_refl.
 Qed.
 
 Lemma VarOccursFreeInFormula_SubstClosed : forall f v w t,
@@ -2234,16 +2037,18 @@ Proof.
   2: reflexivity. clear IHf.
   apply Nat.eqb_eq in H.
   pose proof (VarOccursFreeInFormula_rel
-                v (CoordNat f 1) (SubstTerms t w (TailNat (TailNat f)))).
+                v (CoordNat f 1) (MapNat (SubstTerm t w) (TailNat (TailNat f)))).
   destruct (VarOccursFreeInFormula v
-    (Lrel (CoordNat f 1) (SubstTerms t w (TailNat (TailNat f))))).
-  2: reflexivity. exfalso. destruct H1 as [H1 _]. specialize (H1 eq_refl).
+    (Lrel (CoordNat f 1) (MapNat (SubstTerm t w) (TailNat (TailNat f))))).
+  2: reflexivity. exfalso.
+  destruct H1 as [H1 _]. rewrite LengthMapNat. apply MapNatTruncated.
+  specialize (H1 eq_refl).
   destruct H1 as [j [H1 H2]].
-  rewrite SubstTermsLength in H1.
-  rewrite SubstTermsCoord, CoordTailNat, CoordTailNat in H2. 2: exact H1.
+  rewrite LengthMapNat in H1.
+  rewrite CoordMapNat, CoordTailNat, CoordTailNat in H2. 2: exact H1.
   assert (VarOccursInTerm v (CoordNat f (S (S j))) = false).
   { apply Bool.negb_false_iff.
-    rewrite <- H at 2. rewrite CoordNat_rel, SubstTermsCoord.
+    rewrite <- H at 2. rewrite CoordNat_rel, CoordMapNat.
     rewrite CoordTailNat, CoordTailNat. apply Nat.eqb_refl.
     exact H1. }
   rewrite (VarOccursInTerm_SubstClosed (CoordNat f (S (S j))) v w t H3 H0) in H2.
@@ -2258,20 +2063,29 @@ Proof.
   - intros. rewrite SubstTerm_var.
     destruct (v =? v0) eqn:des. apply Nat.eqb_eq in des.
     subst v0. reflexivity. reflexivity.
-  - intros. rewrite SubstTerm_op. apply f_equal.
-    unfold SubstTerms.
-    rewrite (MapNatExt _ (fun i => i)). apply MapIdNat.
-    intros k H. apply IHterms, H.
+  - intros. rewrite SubstTerm_op. 
+    apply f_equal. 
+    apply TruncatedEqNat.
+    rewrite LengthMapNat. reflexivity.
+    rewrite LengthMapNat, MapNatTruncated. 
+    symmetry. exact termsTrunc.
+    intros k H. rewrite LengthMapNat in H.
+    rewrite CoordMapNat.
+    apply IHterms, H. exact H.
 Qed.
 
 Lemma SubstTermsIdemVar : forall (terms v : nat),
-    (forall i : nat, i < LengthNat terms -> IsLterm (CoordNat terms i) = true)
-    -> SubstTerms (Lvar v) v terms = terms.
+    NthTailNat terms (LengthNat terms) = 0
+    -> (forall i : nat, i < LengthNat terms -> IsLterm (CoordNat terms i) = true)
+    -> MapNat (SubstTerm (Lvar v) v) terms = terms.
 Proof.
-  intros. unfold SubstTerms.
-  rewrite (MapNatExt _ (fun x => x)). apply MapIdNat.
-  intros k H0. apply SubstTermIdemVar.
-  apply H, H0.
+  intros. apply TruncatedEqNat.
+  rewrite LengthMapNat. reflexivity.
+  rewrite LengthMapNat, MapNatTruncated.
+  symmetry. exact H.
+  intros k H1. rewrite LengthMapNat in H1.
+  rewrite CoordMapNat. apply SubstTermIdemVar.
+  apply H0. exact H1. exact H1.
 Qed.
 
 Lemma SubstIdemVar : forall prop,
@@ -2280,7 +2094,7 @@ Lemma SubstIdemVar : forall prop,
 Proof.
   apply (Lproposition_rect (fun prop => forall v, Subst (Lvar v) v prop = prop)).
   - intros. rewrite Subst_rel.
-    apply f_equal, SubstTermsIdemVar. exact elemterms.
+    apply f_equal, SubstTermsIdemVar. exact termsTrunc. exact elemterms.
   - intros. rewrite Subst_not, IHprop. reflexivity.
   - intros. rewrite Subst_implies, IHg, IHh. reflexivity.
   - intros. rewrite Subst_or, IHg, IHh. reflexivity.

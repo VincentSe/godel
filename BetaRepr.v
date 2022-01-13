@@ -193,10 +193,10 @@ Proof.
       rewrite SubstTerm_PAnat.
       rewrite SubstTerm_PAnat.
       apply LandIntro. apply PAle_normalize.
-      destruct j. apply le_0_n.
+      destruct j. apply Nat.le_0_l.
       apply Nat.div_le_upper_bound. discriminate.
       rewrite <- (Nat.mul_1_l i) at 1.
-      apply Nat.mul_le_mono_nonneg_r. apply le_0_n. apply le_n_S, le_0_n.
+      apply Nat.mul_le_mono_nonneg_r. apply Nat.le_0_l. apply le_n_S, Nat.le_0_l.
       rewrite SubstTerm_PAzero.
       exact (NatDivCorrect i j).
   - apply hypprop. apply IsLterm_var. apply IsLterm_var.
@@ -315,7 +315,7 @@ Proof.
                              (LeqRefl _ (PAnat i) (IsLterm_PAnat _))) as H0.
     apply LandElim2 in H0.
     apply (LimpliesElim _ _ _ H0); clear H0.
-    rewrite Nat.add_comm, <- (Minus.le_plus_minus j i).
+    rewrite Nat.sub_add.
     apply LeqRefl, IsLterm_PAnat.
     apply Nat.lt_le_incl, l.
 Qed.
@@ -397,7 +397,7 @@ Proof.
   apply ComposeRepr_21. exact SubtractionRepresented.
   apply (proj_represented 1 0); auto.
   apply (ConstantRepresented 1).
-  intro n. rewrite pred_of_minus. reflexivity.
+  intro n. rewrite Nat.sub_1_r. reflexivity.
 Qed.
 
 Lemma mod_repr : FunctionRepresented 2 Nat.modulo.
@@ -862,7 +862,7 @@ Proof.
   - apply le_S, Nat.le_refl.
   - rewrite <- (Nat.mul_1_r (S n)) at 1.
     change (fact (S n)) with ((S n) * fact n)%nat.
-    apply Nat.mul_le_mono_nonneg_l. apply le_0_n.
+    apply Nat.mul_le_mono_nonneg_l. apply Nat.le_0_l.
     apply lt_O_fact.
 Qed.
 
@@ -891,8 +891,8 @@ Proof.
     rewrite moduloslen in H. exact H.
     rewrite <- (Nat.add_comm 1). apply le_n_S.
     rewrite <- (Nat.mul_1_l t) at 1.
-    apply Nat.mul_le_mono_nonneg_r. apply le_0_n.
-    rewrite Nat.add_comm. apply le_n_S, le_0_n.
+    apply Nat.mul_le_mono_nonneg_r. apply Nat.le_0_l.
+    rewrite Nat.add_comm. apply le_n_S, Nat.le_0_l.
     rewrite <- moduloslen. exact H.
     rewrite LengthRangeNat, <- moduloslen. exact H.
   - intros i j H. unfold modulos.
@@ -903,7 +903,7 @@ Proof.
     rewrite Nat2Z.inj_mul, Nat2Z.inj_mul.
     apply BetaRelPrime.
     split. apply (Nat2Z.inj_lt 0).
-    rewrite Nat.add_comm. apply le_n_S, le_0_n.
+    rewrite Nat.add_comm. apply le_n_S, Nat.le_0_l.
     apply Nat2Z.inj_lt. rewrite (Nat.add_comm i), (Nat.add_comm j).
     apply le_n_S, H.
     apply Nat2Z.inj_le. simpl. rewrite CoordConsHeadNat.
@@ -1054,15 +1054,15 @@ Proof.
   assert (2 + m =? v = false)%nat as H2.
   { apply Nat.eqb_neq. intro abs. apply (Nat.lt_irrefl (2+m)).
     rewrite abs at 1. apply le_n_S. apply (Nat.le_trans _ _ _ H).
-    apply le_n_S, le_n_S, le_0_n. }
+    apply le_n_S, le_n_S, Nat.le_0_l. }
   assert (3 + m =? v = false)%nat as H3.
   { apply Nat.eqb_neq. intro abs. apply (Nat.lt_irrefl (3+m)).
     rewrite abs at 1. apply le_n_S. apply (Nat.le_trans _ _ _ H).
-    apply le_n_S, le_n_S, le_0_n. }
+    apply le_n_S, le_n_S, Nat.le_0_l. }
   assert (4 + m =? v = false)%nat as H4.
   { apply Nat.eqb_neq. intro abs. apply (Nat.lt_irrefl (4+m)).
     rewrite abs at 1. apply le_n_S. apply (Nat.le_trans _ _ _ H).
-    apply le_n_S, le_n_S, le_0_n. }
+    apply le_n_S, le_n_S, Nat.le_0_l. }
   reduce_subst; rewrite H2, H3, H4.
   apply Bool.negb_false_iff, Nat.eqb_eq in H1.
   rewrite H1.
@@ -1095,7 +1095,7 @@ Proof.
     2: rewrite VarOccursInTerm_var, Nat.eqb_sym; exact H4.
     destruct v.
     apply VarOccursFreeInFormula_SubstClosed.
-    apply betast_vars. discriminate. apply le_0_n.
+    apply betast_vars. discriminate. apply Nat.le_0_l.
     rewrite VarOccursInTerm_op1.
     rewrite VarOccursInTerm_var, Nat.eqb_sym. exact H2.
     destruct v.
@@ -1113,7 +1113,7 @@ Proof.
     2: rewrite VarOccursInTerm_var, Nat.eqb_sym; exact H3. 
     destruct v.
     apply VarOccursFreeInFormula_SubstClosed.
-    apply betast_vars. discriminate. apply le_0_n.
+    apply betast_vars. discriminate. apply Nat.le_0_l.
     rewrite VarOccursInTerm_var, Nat.eqb_sym. exact H2.
     destruct v.
     apply VarOccursFreeInFormula_SubstClosed.
@@ -1231,7 +1231,7 @@ Proof.
     apply betast_IsLprop. apply IsLterm_const.
     rewrite VarOccursInTerm_var. exact des3.
     rewrite VarOccursFreeInFormula_SubstDiff, VarOccursFreeInFormula_SubstDiff.
-    apply H. apply le_n_S, le_0_n.
+    apply H. apply le_n_S, Nat.le_0_l.
     apply betast_IsLprop. discriminate.
     apply (PAnat_closed 0).
     apply SubstIsLproposition. apply betast_IsLprop.
@@ -1257,7 +1257,7 @@ Proof.
     apply betast_IsLprop. apply IsLterm_var.
     rewrite VarOccursInTerm_var. exact des4.
     rewrite VarOccursFreeInFormula_SubstDiff, VarOccursFreeInFormula_SubstDiff.
-    apply H. apply le_n_S, le_0_n.
+    apply H. apply le_n_S, Nat.le_0_l.
     apply betast_IsLprop. discriminate.
     rewrite VarOccursInTerm_var. exact des3.
     apply SubstIsLproposition. apply betast_IsLprop.
@@ -1272,7 +1272,7 @@ Proof.
     rewrite IsLterm_op1. apply IsLterm_var.
     rewrite VarOccursInTerm_var. exact des4.
     rewrite VarOccursFreeInFormula_SubstDiff, VarOccursFreeInFormula_SubstDiff.
-    apply H. apply le_n_S, le_0_n. apply betast_IsLprop.
+    apply H. apply le_n_S, Nat.le_0_l. apply betast_IsLprop.
     discriminate. unfold PAsucc. rewrite VarOccursInTerm_op1.
     rewrite VarOccursInTerm_var. exact des3.
     apply SubstIsLproposition. apply betast_IsLprop.
@@ -1282,7 +1282,7 @@ Proof.
     rewrite VarOccursFreeInFormula_SubstDiff.
     rewrite VarOccursFreeInFormula_SubstDiff.
     rewrite VarOccursFreeInFormula_SubstDiff.
-    apply H0. do 3 apply le_n_S. apply le_0_n.
+    apply H0. do 3 apply le_n_S. apply Nat.le_0_l.
     exact upropprop. discriminate.
     rewrite VarOccursInTerm_var. exact des3.
     apply SubstIsLproposition. exact upropprop.
@@ -1308,7 +1308,7 @@ Proof.
     apply betast_IsLprop. apply IsLterm_var.
     rewrite VarOccursInTerm_var. reflexivity.
     rewrite VarOccursFreeInFormula_SubstDiff, VarOccursFreeInFormula_SubstDiff.
-    apply H. apply le_n_S, le_0_n.
+    apply H. apply le_n_S, Nat.le_0_l.
     apply betast_IsLprop. discriminate.
     rewrite VarOccursInTerm_var. exact des3.
     apply SubstIsLproposition. apply betast_IsLprop.
@@ -1900,12 +1900,12 @@ Proof.
     rewrite (SubstSubstDiffCommutes _ 1 0).
     rewrite (SubstSubstDiffCommutes _ 2 0).
     rewrite (SubstSubstDiffCommutes _ 2 1).
-    apply H1, H. apply le_n_S, le_0_n.
+    apply H1, H. apply le_n_S, Nat.le_0_l.
     discriminate. apply (PAnat_closed 0).
     apply PAnat_closed. discriminate. apply (PAnat_closed 0).
     apply PAnat_closed. discriminate. apply PAnat_closed.
     apply PAnat_closed.
-    apply le_n_S, Nat.le_max_l. apply (le_trans _ 4). auto. exact fourlem.
+    apply le_n_S, Nat.le_max_l. apply (Nat.le_trans _ 4). auto. exact fourlem.
     intro abs. apply le_n_S in fourlem. rewrite abs in fourlem.
     apply le_S_n, le_S_n in fourlem. inversion fourlem.
     apply PAnat_closed. apply (PAnat_closed O).
@@ -1931,8 +1931,8 @@ Proof.
     apply Nat.max_lub. apply Nat.le_refl. apply le_S, le_S, Nat.le_max_l.
     apply Nat.eqb_neq, m2. apply PAnat_closed. apply PAnat_closed.
     apply Nat.eqb_neq, m1. apply PAnat_closed. apply PAnat_closed.
-    apply le_n_S, le_0_n. rewrite LengthRangeNat.
-    apply le_n_S, le_0_n.
+    apply le_n_S, Nat.le_0_l. rewrite LengthRangeNat.
+    apply le_n_S, Nat.le_0_l.
   - unfold beta_rec_body.
     rewrite Subst_forall.
     change (2 + m =? m)%nat with (S (S m) =? m)%nat. rewrite m2.
@@ -2470,7 +2470,7 @@ Proof.
     rewrite (SubstSubstDiffCommutes (beta_rec_body m urep (Lvar 1)) 0 1).
     2: discriminate. 2: apply PAnat_closed. 2: apply PAnat_closed.
     rewrite (Subst_nosubst (beta_rec_body m urep (Lvar 1)) 0).
-    2: apply (beta_rec_body_vars _ _ 0 (le_0_n _)).
+    2: apply (beta_rec_body_vars _ _ 0 (Nat.le_0_l _)).
     2: apply fr_propprop.
     2: apply VarOccursInTerm_var.
     rewrite (beta_rec_body_subst_one urep); fold m.
@@ -2530,7 +2530,7 @@ Proof.
       apply (Nat.le_trans _ _ _ (MaxVar_Subst _ _ _)).
       apply Nat.max_lub. change PAzero with (PAnat 0).
       rewrite MaxVarTerm_PAnat.
-      apply le_0_n.
+      apply Nat.le_0_l.
       apply (Nat.le_trans _ _ _ (MaxVar_betast _)).
       apply Nat.max_lub. apply Nat.le_refl. apply le_S, le_S, Nat.le_max_l.
       (* Now we have the hypothesis beta(s,t,0) = i.
@@ -2797,7 +2797,7 @@ Proof.
     + rewrite VarOccursFreeInFormula_SubstDiff, VarOccursFreeInFormula_SubstDiff.
       rewrite VarOccursFreeInFormula_SubstDiff.
       apply betast_vars. apply Nat.eqb_neq.
-      rewrite Nat.eqb_sym. exact m0. apply le_0_n.
+      rewrite Nat.eqb_sym. exact m0. apply Nat.le_0_l.
       apply betast_IsLprop. discriminate.
       rewrite VarOccursInTerm_var. reflexivity.
       apply SubstIsLproposition. apply betast_IsLprop. apply IsLterm_var.
@@ -2810,7 +2810,7 @@ Proof.
     + rewrite VarOccursFreeInFormula_SubstDiff, VarOccursFreeInFormula_SubstDiff.
       rewrite VarOccursFreeInFormula_SubstDiff.
       apply betast_vars. apply Nat.eqb_neq.
-      rewrite Nat.eqb_sym. exact m0. apply le_0_n.
+      rewrite Nat.eqb_sym. exact m0. apply Nat.le_0_l.
       apply betast_IsLprop. discriminate.
       apply (PAnat_closed 0).
       apply SubstIsLproposition. apply betast_IsLprop. 

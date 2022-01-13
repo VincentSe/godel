@@ -1241,7 +1241,7 @@ Lemma ProgressiveSubstTruncated : forall terms1 terms2 numSubst,
 Proof.
   intros. unfold ProgressiveSubst.
   rewrite <- (LengthRangeNat (LengthNat terms1) 0) at 2.
-  rewrite MapNatTruncated. rewrite LengthRangeNat. apply RangeNatTruncated.
+  apply MapNatTruncated.
 Qed.
 
 Lemma ProgressiveSubstInit : forall terms1 terms2,
@@ -1280,11 +1280,12 @@ Lemma Subst_EqTerms : forall u v i terms1 terms2,
     i < LengthNat terms1
     -> i < LengthNat terms2
     -> Subst u v (EqTerms terms1 terms2 i)
-      = EqTerms (SubstTerms u v terms1) (SubstTerms u v terms2) i.
+      = EqTerms (MapNat (SubstTerm u v) terms1)
+                (MapNat (SubstTerm u v) terms2) i.
 Proof.
   induction i.
   - intros. simpl.
-    rewrite Subst_eq, SubstTermsCoord, SubstTermsCoord.
+    rewrite Subst_eq, CoordMapNat, CoordMapNat.
     reflexivity. exact H0. exact H.
   - intros. simpl.
     rewrite Subst_and. apply f_equal2.
@@ -1293,7 +1294,7 @@ Proof.
       apply le_S, Nat.le_refl. exact H.
       apply (Nat.le_trans _ (S (S i))).
       apply le_S, Nat.le_refl. exact H0.
-    + clear IHi. rewrite Subst_eq. rewrite SubstTermsCoord, SubstTermsCoord.
+    + clear IHi. rewrite Subst_eq, CoordMapNat, CoordMapNat.
       reflexivity. exact H0. exact H.
 Qed.
 
@@ -1403,7 +1404,6 @@ Proof.
     2: apply IsLterm_var. 2: apply allfree.
     rewrite Subst_implies, Subst_equiv, Subst_rel, Subst_rel in IHnumSubst.
     rewrite Subst_EqTerms in IHnumSubst.
-    unfold SubstTerms in IHnumSubst.
     rewrite MapMapNat, MapMapNat in IHnumSubst.
     rewrite ProgressiveSubstIncr, ProgressiveSubstIncr in IHnumSubst.
     exact IHnumSubst.
@@ -1494,11 +1494,11 @@ Proof.
       simpl in H0. rewrite Nat.add_0_r in H0.
       apply (Nat.lt_irrefl numSubst).
       exact (Nat.lt_le_trans _ _ _ H1 H0). discriminate.
-    + clear IHnumSubst. rewrite SubstTermsLength, ProgressiveSubstLength.
+    + clear IHnumSubst. rewrite LengthMapNat, ProgressiveSubstLength.
       destruct arity. inversion H.
       rewrite LengthEvenVarsNat.
       apply Nat.le_refl.
-    + clear IHnumSubst. rewrite SubstTermsLength, ProgressiveSubstLength.
+    + clear IHnumSubst. rewrite LengthMapNat, ProgressiveSubstLength.
       destruct arity. inversion H.
       rewrite LengthEvenVarsNat. apply Nat.le_refl.
     + rewrite LengthEvenVarsNat.
@@ -1580,7 +1580,6 @@ Proof.
     apply (LforallElim IsAxiom _ _ (CoordNat terms2 numSubst)) in IHnumSubst.
     rewrite Subst_implies, Subst_equiv, Subst_rel, Subst_rel in IHnumSubst.
     rewrite Subst_EqTerms in IHnumSubst.
-    unfold SubstTerms in IHnumSubst.
     rewrite MapMapNat, MapMapNat in IHnumSubst.
     rewrite ProgressiveSubstIncr, ProgressiveSubstIncr in IHnumSubst.
     exact IHnumSubst.
@@ -1670,10 +1669,10 @@ Proof.
       apply MaxVarTermDoesNotOccur. exact H3.
       apply terms1terms. exact H1.
     + clear IHnumSubst.
-      rewrite SubstTermsLength, ProgressiveSubstLength, LengthEvenVarsNat.
+      rewrite LengthMapNat, ProgressiveSubstLength, LengthEvenVarsNat.
       destruct (LengthNat terms1). inversion H. apply Nat.le_refl.
     + clear IHnumSubst.
-      rewrite SubstTermsLength, ProgressiveSubstLength, LengthEvenVarsNat.
+      rewrite LengthMapNat, ProgressiveSubstLength, LengthEvenVarsNat.
       destruct (LengthNat terms1). inversion H. apply Nat.le_refl.
     + apply terms2terms. rewrite <- samelength. exact H.
     + rewrite IsFreeForSubst_implies, IsFreeForSubst_EqTerms.
@@ -2002,16 +2001,16 @@ Proof.
     apply (LforallIntro _ _ (2 * numSubst)) in IHnumSubst.
     apply (LforallElim IsAxiom _ _ (Lvar (n+2*numSubst))) in IHnumSubst.
     2: apply IsLterm_var. 2: apply allfree.
-    rewrite Subst_implies, Subst_eq, SubstTerm_op, SubstTerm_op in IHnumSubst.
-    rewrite Subst_EqTerms in IHnumSubst.
+    rewrite Subst_implies, Subst_eq, SubstTerm_op,
+      Subst_EqTerms, SubstTerm_op in IHnumSubst.
     2: rewrite ProgressiveSubstLength.
     3: rewrite ProgressiveSubstLength.
     apply (LforallIntro _ _ (1 + 2 * numSubst)) in IHnumSubst.
     apply (LforallElim IsAxiom _ _ (Lvar (S n+2*numSubst))) in IHnumSubst.
     2: apply IsLterm_var. 2: apply allfree.
-    rewrite Subst_implies, Subst_eq, SubstTerm_op, SubstTerm_op in IHnumSubst.
+    rewrite Subst_implies, Subst_eq,
+      SubstTerm_op, SubstTerm_op in IHnumSubst.
     rewrite Subst_EqTerms in IHnumSubst.
-    unfold SubstTerms in IHnumSubst.
     rewrite MapMapNat, MapMapNat in IHnumSubst.
     rewrite ProgressiveSubstIncr, ProgressiveSubstIncr in IHnumSubst.
     exact IHnumSubst.
@@ -2102,11 +2101,11 @@ Proof.
       simpl in H0. rewrite Nat.add_0_r in H0.
       apply (Nat.lt_irrefl numSubst).
       exact (Nat.lt_le_trans _ _ _ H1 H0). discriminate.
-    + clear IHnumSubst. rewrite SubstTermsLength, ProgressiveSubstLength.
+    + clear IHnumSubst. rewrite LengthMapNat, ProgressiveSubstLength.
       destruct arity. inversion H.
       rewrite LengthEvenVarsNat.
       apply Nat.le_refl.
-    + clear IHnumSubst. rewrite SubstTermsLength, ProgressiveSubstLength.
+    + clear IHnumSubst. rewrite LengthMapNat, ProgressiveSubstLength.
       destruct arity. inversion H.
       rewrite LengthEvenVarsNat. apply Nat.le_refl.
     + rewrite LengthEvenVarsNat.
@@ -2180,15 +2179,16 @@ Proof.
     apply (LforallIntro _ _ (m + 2 * numSubst)) in IHnumSubst.
     apply (LforallElim IsAxiom _ _ (CoordNat terms1 numSubst)) in IHnumSubst.
     2: apply terms1terms, H.
-    rewrite Subst_implies, Subst_eq, SubstTerm_op, SubstTerm_op in IHnumSubst.
+    rewrite Subst_implies, Subst_eq,
+      SubstTerm_op, SubstTerm_op in IHnumSubst.
     rewrite Subst_EqTerms in IHnumSubst.
     2: rewrite ProgressiveSubstLength.
     3: rewrite ProgressiveSubstLength.
     apply (LforallIntro _ _ (S m + 2 * numSubst)) in IHnumSubst.
     apply (LforallElim IsAxiom _ _ (CoordNat terms2 numSubst)) in IHnumSubst.
-    rewrite Subst_implies, Subst_eq, SubstTerm_op, SubstTerm_op in IHnumSubst.
+    rewrite Subst_implies, Subst_eq,
+      SubstTerm_op, SubstTerm_op in IHnumSubst.
     rewrite Subst_EqTerms in IHnumSubst.
-    unfold SubstTerms in IHnumSubst.
     rewrite MapMapNat, MapMapNat in IHnumSubst.
     rewrite ProgressiveSubstIncr, ProgressiveSubstIncr in IHnumSubst.
     exact IHnumSubst.
@@ -2281,10 +2281,10 @@ Proof.
       apply MaxVarTermDoesNotOccur. exact H3.
       apply terms1terms. exact H1.
     + clear IHnumSubst.
-      rewrite SubstTermsLength, ProgressiveSubstLength, LengthEvenVarsNat.
+      rewrite LengthMapNat, ProgressiveSubstLength, LengthEvenVarsNat.
       destruct (LengthNat terms1). inversion H. apply Nat.le_refl.
     + clear IHnumSubst.
-      rewrite SubstTermsLength, ProgressiveSubstLength, LengthEvenVarsNat.
+      rewrite LengthMapNat, ProgressiveSubstLength, LengthEvenVarsNat.
       destruct (LengthNat terms1). inversion H. apply Nat.le_refl.
     + apply terms2terms. rewrite <- samelength. exact H.
     + rewrite IsFreeForSubst_implies, IsFreeForSubst_EqTerms.
@@ -2390,53 +2390,52 @@ Proof.
     destruct (LengthNat terms) eqn:lenTerms.
     simpl in termsTrunc. subst terms.
     rewrite SubstTerm_op, SubstTerm_op.
-    unfold SubstTerms, MapNat. simpl.
+    simpl.
     apply (LimpliesElim _ (Leq (Lop o 0) (Lop o 0))).
     apply IsProvedPropAx, Ax1IsPropAx, Ax1IsAx1.
     pose proof (IsLterm_const). unfold Lconst in H.
     rewrite IsLproposition_eq, H.
-    change 0 with NilNat.
-    rewrite LengthNilNat. simpl. apply H.
+    simpl. rewrite MapNilNat. apply H.
     rewrite IsLproposition_eq, IsLterm_var, IsLterm_var. reflexivity.
     apply LeqRefl.
     pose proof (IsLterm_const). unfold Lconst in H.
     rewrite H. reflexivity.
     apply (LimpliesTrans
-             _ _ (EqTerms (SubstTerms (Lvar x) z terms)
-                          (SubstTerms (Lvar y) z terms)
+             _ _ (EqTerms (MapNat (SubstTerm (Lvar x) z) terms)
+                          (MapNat (SubstTerm (Lvar y) z) terms)
                           n)).
     + assert (forall i, i < LengthNat terms
                    -> IsProved IsAxiom
                               (Limplies (Leq (Lvar x) (Lvar y))
-       (EqTerms (SubstTerms (Lvar x) z terms) (SubstTerms (Lvar y) z terms) i))).
+                                        (EqTerms (MapNat (SubstTerm (Lvar x) z) terms)
+                                                 (MapNat (SubstTerm (Lvar y) z) terms) i))).
       induction i.
       simpl. intros.
-      rewrite SubstTermsCoord, SubstTermsCoord.
+      rewrite CoordMapNat, CoordMapNat.
       apply IHterms. apply le_n_S, le_0_n. exact H. exact H.
       intros. 
       simpl. apply LandIntroHyp. apply IHi.
       apply (Nat.le_trans _ (S (S i))).
       apply le_S, Nat.le_refl. exact H.
-      rewrite SubstTermsCoord, SubstTermsCoord.
+      rewrite CoordMapNat, CoordMapNat.
       apply IHterms. rewrite <- lenTerms. exact H. exact H. exact H.
       change n with (pred (S n)). rewrite <- lenTerms.
       apply H. rewrite lenTerms. apply Nat.le_refl.
     + rewrite SubstTerm_op, SubstTerm_op.
       change n with (pred (S n)).
       rewrite <- lenTerms.
-      rewrite <- (SubstTermsLength (Lvar x) z terms).
+      rewrite <- (LengthMapNat (SubstTerm (Lvar x) z) terms).
       apply LeqElim_vars_op.
-      rewrite SubstTermsLength, SubstTermsLength. reflexivity.
-      rewrite SubstTermsLength, lenTerms. apply le_n_S, le_0_n.
-      rewrite SubstTermsLength. unfold SubstTerms.
-      rewrite MapNatTruncated. rewrite lenTerms. exact termsTrunc.
-      rewrite SubstTermsLength. unfold SubstTerms.
-      rewrite MapNatTruncated. rewrite lenTerms. exact termsTrunc.
-      intros k H. rewrite SubstTermsLength in H.
-      rewrite SubstTermsCoord. apply IsSubstTermLterm. apply IHterms.
+      rewrite LengthMapNat, LengthMapNat. reflexivity.
+      rewrite LengthMapNat, lenTerms. apply le_n_S, le_0_n.
+      rewrite LengthMapNat. 
+      apply MapNatTruncated. 
+      rewrite LengthMapNat. apply MapNatTruncated.
+      intros k H. rewrite LengthMapNat in H.
+      rewrite CoordMapNat. apply IsSubstTermLterm. apply IHterms.
       rewrite <- lenTerms. exact H. apply IsLterm_var. exact H.
-      intros k H. rewrite SubstTermsLength in H.
-      rewrite SubstTermsCoord. apply IsSubstTermLterm. apply IHterms.
+      intros k H. rewrite LengthMapNat in H.
+      rewrite CoordMapNat. apply IsSubstTermLterm. apply IHterms.
       rewrite <- lenTerms. exact H. apply IsLterm_var. exact H. 
 Qed.
 
@@ -2446,82 +2445,79 @@ Lemma LeqElim_vars_atom : forall IsAxiom r terms x y z,
     -> IsProved IsAxiom
                (Limplies (Leq (Lvar x) (Lvar y))
                          (Limplies
-                            (Lrel r (SubstTerms (Lvar x) z terms))
-                            (Lrel r (SubstTerms (Lvar y) z terms)))).
+                            (Lrel r (MapNat (SubstTerm (Lvar x) z) terms))
+                            (Lrel r (MapNat (SubstTerm (Lvar y) z) terms)))).
 Proof.
   intros.
-  pose proof (LeqElim_rel IsAxiom r (SubstTerms (Lvar x) z terms)
-                          (SubstTerms (Lvar y) z terms) ).
-  rewrite SubstTermsLength, SubstTermsLength in H1.
+  pose proof (LeqElim_rel IsAxiom r (MapNat (SubstTerm (Lvar x) z) terms)
+                          (MapNat (SubstTerm (Lvar y) z) terms) ).
+  rewrite LengthMapNat, LengthMapNat in H1.
   specialize (H1 eq_refl).
   destruct (LengthNat terms) eqn:lenTerms.
-  - simpl in H0. subst terms. unfold SubstTerms, MapNat; simpl.
+  - simpl in H0. subst terms.
     assert (IsLproposition (Lrel r 0) = true).
     rewrite IsLproposition_rel. split. reflexivity.
     intros. inversion H0.
     apply (LimpliesElim _ (Limplies (Lrel r 0) (Lrel r 0))).
     2: apply LimpliesRefl, H0.
     apply IsProvedPropAx, Ax1IsPropAx, Ax1IsAx1.
-    change 0 with NilNat. rewrite LengthNilNat. simpl.
+    rewrite MapNilNat, MapNilNat.
     change NilNat with 0.
     rewrite IsLproposition_implies, H0. reflexivity.
     rewrite IsLproposition_eq, IsLterm_var, IsLterm_var. reflexivity.
   - apply (LimpliesTrans
-             _ _ (EqTerms (SubstTerms (Lvar x) z terms)
-                          (SubstTerms (Lvar y) z terms)
+             _ _ (EqTerms (MapNat (SubstTerm (Lvar x) z) terms)
+                          (MapNat (SubstTerm (Lvar y) z) terms)
                           n)).
     + clear H1.
       assert (forall i, 1 <= i <= LengthNat terms
                    -> IsProved IsAxiom
                               (Limplies (Leq (Lvar x) (Lvar y))
-       (EqTerms (SubstTerms (Lvar x) z terms) (SubstTerms (Lvar y) z terms) (pred i)))).
+                                        (EqTerms (MapNat (SubstTerm (Lvar x) z) terms)
+                                                 (MapNat (SubstTerm (Lvar y) z) terms) (pred i)))).
       induction i.
       simpl. intros. destruct H1. exfalso. inversion H1.
       simpl. intros. destruct i.
-      simpl. rewrite SubstTermsCoord, SubstTermsCoord.
+      simpl. rewrite CoordMapNat, CoordMapNat.
       apply LeqElim_vars_term. apply H, le_n_S, le_0_n.
       rewrite lenTerms. apply le_n_S, le_0_n.
       rewrite lenTerms. apply le_n_S, le_0_n.
       simpl. apply LandIntroHyp. apply IHi.
       split. apply le_n_S, le_0_n. apply (Nat.le_trans _ (S (S i))).
       apply le_S, Nat.le_refl. apply H1.
-      rewrite SubstTermsCoord, SubstTermsCoord.
+      rewrite CoordMapNat, CoordMapNat.
       apply LeqElim_vars_term. apply H. rewrite <- lenTerms. apply H1.
       apply H1. apply H1.
       change n with (pred (S n)). rewrite <- lenTerms.
       apply H1. split. rewrite lenTerms. apply le_n_S, le_0_n.
       apply Nat.le_refl.
-    + apply (LimpliesTrans _ _ (Lequiv (Lrel r (SubstTerms (Lvar x) z terms))
-                                       (Lrel r (SubstTerms (Lvar y) z terms)))).
+    + apply (LimpliesTrans _ _ (Lequiv (Lrel r (MapNat (SubstTerm (Lvar x) z) terms))
+                                       (Lrel r (MapNat (SubstTerm (Lvar y) z) terms)))).
       apply H1. apply le_n_S, le_0_n.
-      rewrite <- lenTerms. unfold SubstTerms. rewrite MapNatTruncated.
-      rewrite lenTerms. exact H0.
-      rewrite <- lenTerms. unfold SubstTerms. rewrite MapNatTruncated.
-      rewrite lenTerms. exact H0.
-      intros k H2. rewrite SubstTermsCoord.
+      rewrite <- lenTerms. apply MapNatTruncated.
+      rewrite <- lenTerms. apply MapNatTruncated.
+      intros k H2. rewrite CoordMapNat.
       apply IsSubstTermLterm. apply H. exact H2. apply IsLterm_var.
       rewrite lenTerms. exact H2.
-      intros k H2. rewrite SubstTermsCoord.
+      intros k H2. rewrite CoordMapNat.
       apply IsSubstTermLterm. apply H. exact H2. apply IsLterm_var.
       rewrite lenTerms. exact H2.
-      assert (IsLproposition (Lrel r (SubstTerms (Lvar x) z terms)) = true).
+      assert (IsLproposition (Lrel r (MapNat (SubstTerm (Lvar x) z) terms)) = true).
       { apply IsLproposition_rel. split.
-        rewrite SubstTermsLength. unfold SubstTerms. rewrite MapNatTruncated.
-        rewrite lenTerms. exact H0. intros.
-        rewrite SubstTermsCoord.
+        rewrite LengthMapNat. apply MapNatTruncated.
+        intros. rewrite CoordMapNat.
         apply IsSubstTermLterm. apply H.
-        rewrite SubstTermsLength, lenTerms in H2. exact H2.
+        rewrite LengthMapNat, lenTerms in H2. exact H2.
         apply IsLterm_var.
-        rewrite SubstTermsLength in H2. exact H2. }
-      assert (IsLproposition (Lrel r (SubstTerms (Lvar y) z terms)) = true).
+        rewrite LengthMapNat in H2. exact H2. }
+      assert (IsLproposition (Lrel r (MapNat (SubstTerm (Lvar y) z) terms)) = true).
       { apply IsLproposition_rel. split.
-        rewrite SubstTermsLength. unfold SubstTerms. rewrite MapNatTruncated.
-        rewrite lenTerms. exact H0. intros.
-        rewrite SubstTermsCoord.
+        rewrite LengthMapNat. apply MapNatTruncated.
+        intros. rewrite CoordMapNat.
         apply IsSubstTermLterm. apply H.
-        rewrite SubstTermsLength, lenTerms in H3. exact H3.
+        rewrite LengthMapNat, lenTerms in H3. exact H3.
         apply IsLterm_var.
-        rewrite SubstTermsLength in H3. exact H3. }
+        rewrite LengthMapNat in H3. exact H3. }
       apply LandElim1_impl.
       rewrite IsLproposition_implies, H2, H3. reflexivity.
       rewrite IsLproposition_implies, H2, H3. reflexivity.

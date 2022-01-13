@@ -131,7 +131,7 @@ Proof.
     destruct n. reflexivity.
     exfalso.
     pose proof (id_lt_square (S (S n))).
-    apply Lt.lt_not_le in H1. contradiction.
+    apply Nat.lt_nge in H1. contradiction.
     apply le_n_S, le_n_S, le_0_n.
 Qed.
 
@@ -403,7 +403,7 @@ Proof.
   exact SubtractionRepresented.
   apply (proj_represented 1 0); apply Nat.le_refl.
   apply (ConstantRepresented 1).
-  intro n. rewrite Minus.pred_of_minus. reflexivity.
+  intro n. rewrite Nat.sub_1_r. reflexivity.
   exact LengthNat_repr.
   apply ComposeRepr_11; exact diagY_repr.
   intro n. unfold TailNat.
@@ -615,7 +615,7 @@ Proof.
       apply (Nat.lt_irrefl k). exact (Nat.lt_le_trans _ _ _ H0 des).
       rewrite CoordConsTailNat.
       apply f_equal.
-      symmetry. apply Minus.plus_minus.
+      apply Nat.add_sub_eq_l.
       simpl. rewrite <- Nat.add_succ_r, <- des.
       rewrite Nat.add_comm. rewrite Nat.sub_add.
       reflexivity. apply (Nat.le_trans _ (S k)).
@@ -709,7 +709,7 @@ Proof.
   pose proof (Nat.sub_0_le (LengthNat n) len) as [_ H].
   rewrite H, Nat.sub_0_r. reflexivity. exact l.
   rewrite Nat.min_l.
-  symmetry. apply Minus.plus_minus.
+  apply Nat.add_sub_eq_l.
   rewrite Nat.sub_add. reflexivity.
   apply Nat.lt_le_incl, l.
   apply Nat.lt_le_incl, l.
@@ -730,7 +730,7 @@ Proof.
   rewrite Nat.add_0_r. exact l0.
   apply CoordConcatNatFirst. exact l0.
   assert (LengthNat i - (LengthNat i - j) = j).
-  { symmetry. apply Minus.plus_minus.
+  { apply Nat.add_sub_eq_l.
     rewrite Nat.sub_add. reflexivity. apply Nat.lt_le_incl, l. }
   rewrite CoordConcatReverseNatFirst.
   rewrite LengthNthTailNat, LengthConcatReverseNat.
@@ -741,14 +741,14 @@ Proof.
   replace (LengthNat i - j + (j - S p)) with (LengthNat i - S p).
   rewrite CoordConcatReverseNatFirst.
   apply f_equal.
-  symmetry. apply Minus.plus_minus.
+  apply Nat.add_sub_eq_l.
   simpl. rewrite <- Nat.add_succ_r.
   rewrite Nat.sub_add. reflexivity.
   exact (Nat.lt_trans _ _ _ H l).
   apply Nat.sub_lt.
   exact (Nat.lt_trans _ _ _ H l).
   apply le_n_S, le_0_n.
-  symmetry. apply Minus.plus_minus.
+  apply Nat.add_sub_eq_l.
   rewrite Nat.add_comm, <- Nat.add_assoc.
   rewrite Nat.sub_add. 2: exact H.
   rewrite Nat.sub_add. reflexivity.
@@ -776,187 +776,6 @@ Proof.
   apply ComposeRepr_12. exact LengthNat_repr.
   apply (proj_represented 2 0); auto.
   apply (proj_represented 2 1); auto.
-Qed.
-
-Lemma SetCoordNat_repr : FunctionRepresented 3 SetCoordNat.
-Proof.
-  apply (FunctionRepresented_3_ext
-           (fun n coord val =>
-              if Nat.ltb coord (LengthNat n) then
-                ConcatNat (TruncateNat n coord)
-                          (ConsNat val (NthTailNat n (S coord)))
-              else n)).
-  - apply (IfRepresented 3 (fun n coord val => coord <? LengthNat n)
-                         (fun n coord val => ConcatNat (TruncateNat n coord) (ConsNat val (NthTailNat n (S coord))))).
-    apply (LtbRepresented 3).
-    apply (proj_represented 3 1); auto.
-    apply ComposeRepr_13. exact LengthNat_repr.
-    apply (proj_represented 3 0); auto.
-    apply ComposeRepr_23. exact ConcatNat_repr.
-    apply ComposeRepr_23. exact TruncateNat_repr.
-    apply (proj_represented 3 0); auto.
-    apply (proj_represented 3 1); auto.
-    apply ComposeRepr_23. exact ConsNat_repr.
-    apply (proj_represented 3 2); auto.
-    apply ComposeRepr_23. exact NthTailNat_repr.
-    apply (proj_represented 3 0); auto.
-    apply ComposeRepr_13.
-    exact SuccessorRepresented.
-    apply (proj_represented 3 1); auto.
-    apply (proj_represented 3 0); auto.
-  - intros i j k. destruct (j <? LengthNat i) eqn:des.
-    2: destruct j; simpl; rewrite des; reflexivity.
-    apply Nat.ltb_lt in des.
-    assert (LengthNat (ConcatNat (TruncateNat i j) (ConsNat k (NthTailNat i (S j))))
-            = LengthNat i).
-    { rewrite LengthConcatNat, LengthTruncateNat, LengthConsNat.
-      rewrite LengthNthTailNat, Nat.min_l, Nat.add_succ_r.
-      change (S j + (LengthNat i - S j) = LengthNat i).
-      rewrite (Nat.add_comm (S j)), Nat.sub_add. reflexivity.
-      exact des. apply Nat.lt_le_incl, des. }
-    assert (LengthNat (TruncateNat i j) = j) as lentrunc.
-    { rewrite LengthTruncateNat, Nat.min_l. reflexivity.
-      apply Nat.lt_le_incl, des. }
-    apply TruncatedEqNat.
-    rewrite H. symmetry. apply LengthSetCoordNat.
-    rewrite H, LengthSetCoordNat.
-    rewrite NthTailSetCoordNat. 2: exact des.
-    rewrite <- (Nat.sub_add j (LengthNat i)) at 1.
-    2: apply Nat.lt_le_incl, des.
-    rewrite Nat.add_comm.
-    rewrite <- lentrunc at 3.
-    rewrite NthTailConcatNat.
-    destruct (LengthNat i - j) eqn:z.
-    exfalso. apply Nat.sub_0_le in z.
-    apply (Nat.lt_irrefl j). exact (Nat.lt_le_trans _ _ _ des z).
-    rewrite NthTailConsNat.
-    rewrite NthTailNthTailNat.
-    replace (S j + n) with (j + S n). 2: apply Nat.add_succ_r.
-    rewrite <- z.
-    rewrite Nat.add_comm, Nat.sub_add. reflexivity.
-    apply Nat.lt_le_incl, des.
-    intros p H0. rewrite H in H0.
-    destruct (Nat.lt_trichotomy p j).
-    rewrite CoordSetCoordDiffNat, CoordConcatNatFirst.
-    apply CoordTruncateNat, H1.
-    rewrite lentrunc. exact H1.
-    intro abs. rewrite abs in H1. exact (Nat.lt_irrefl _ H1).
-    destruct H1. subst p.
-    rewrite CoordSetCoordNat.
-    apply Nat.ltb_lt in H0. rewrite H0.
-    replace j with (0 + LengthNat (TruncateNat i j)) at 3.
-    rewrite CoordConcatNatSecond.
-    rewrite CoordConsHeadNat. reflexivity.
-    simpl.
-    rewrite CoordSetCoordDiffNat.
-    replace p with ((p - LengthNat (TruncateNat i j)) + LengthNat (TruncateNat i j))
-                   at 1.
-    rewrite CoordConcatNatSecond.
-    destruct (p - LengthNat (TruncateNat i j)) eqn:z.
-    exfalso. apply Nat.sub_0_le in z.
-    rewrite lentrunc in z.
-    apply (Nat.lt_irrefl p). exact (Nat.le_lt_trans _ _ _ z H1).
-    rewrite CoordConsTailNat.
-    change (NthTailNat (TailNat i) j) with (NthTailNat i (S j)).
-    rewrite CoordNthTailNat.
-    replace (S j + n) with (j + S n). 2: apply Nat.add_succ_r.
-    rewrite <- z, lentrunc.
-    rewrite Nat.add_comm, Nat.sub_add. reflexivity.
-    apply Nat.lt_le_incl, H1.
-    rewrite lentrunc, Nat.sub_add. reflexivity.
-    apply Nat.lt_le_incl, H1.
-    intro abs. rewrite abs in H1. exact (Nat.lt_irrefl _ H1).
-Qed.
-
-Lemma CoordMapNatRec : forall i f n,
-    CoordNat (MapNatRec f n i) i = CoordNat n i.
-Proof.
-  induction i. reflexivity.
-  intros. simpl.
-  rewrite CoordConsTailNat, IHi. reflexivity.
-Qed.
-
-Lemma LengthMapNatRec : forall i f n,
-    i <= LengthNat n ->
-    LengthNat (MapNatRec f n i) = LengthNat n.
-Proof.
-  induction i. reflexivity.
-  intros f n H. simpl.
-  rewrite LengthConsNat, IHi, LengthTailNat.
-  destruct (LengthNat n). inversion H.
-  reflexivity.
-  rewrite LengthTailNat.
-  destruct (LengthNat n). inversion H.
-  simpl. apply le_S_n, H.
-Qed.
-
-Lemma SetMapNatRec : forall i f n,
-    i < LengthNat n ->
-    SetCoordNat (MapNatRec f n i) i (f (CoordNat n i)) = MapNatRec f n (S i).
-Proof.
-  induction i.
-  - intros. simpl.
-    destruct (0 <? LengthNat n) eqn:des. reflexivity.
-    apply Nat.ltb_nlt in des. contradiction.
-  - intros. simpl.
-    rewrite LengthConsNat, LengthMapNatRec.
-    destruct (S i <? S (LengthNat (TailNat n))) eqn:des.
-    rewrite CoordConsHeadNat. apply f_equal.
-    rewrite TailConsNat.
-    rewrite IHi. reflexivity.
-    apply Nat.ltb_lt in des. apply le_S_n in des. exact des.
-    exfalso. apply Nat.ltb_nlt in des. contradict des.
-    rewrite LengthTailNat.
-    destruct (LengthNat n). inversion H. exact H.
-    rewrite LengthTailNat.
-    destruct (LengthNat n). inversion H. simpl.
-    apply le_S_n in H. apply (Nat.le_trans _ (S i)).
-    apply le_S, Nat.le_refl. exact H.
-Qed.
-
-Lemma MapNat_repr : forall (f : nat -> nat -> nat),
-    FunctionRepresented 2 f
-    -> FunctionRepresented 2 (fun n : nat => MapNat (f n)).
-Proof.
-  intros f frep.
-  pose (fun p currentStep val
-        => SetCoordNat val currentStep (f p (CoordNat val currentStep))) as v.
-  apply (FunctionRepresented_2_ext
-           (@ncompose 3 2
-                      (fun param init => nat_rec (fun _ => nat) init (v param))
-                      (fun k => match k with
-                             | O => fun n p => n
-                             | 1 => fun n p => p
-                             | _ => fun n p => LengthNat p
-                             end))).
-  - apply ComposeRepr_n.
-    apply nat_rec_param_repr.
-    unfold v.
-    apply ComposeRepr_33. exact SetCoordNat_repr.
-    apply (proj_represented 3 2); auto.
-    apply (proj_represented 3 1); auto.
-    apply ComposeRepr_23. exact frep.
-    apply (proj_represented 3 0); auto.
-    apply ComposeRepr_23. exact CoordNat_repr.
-    apply (proj_represented 3 2); auto.
-    apply (proj_represented 3 1); auto.
-    intros [|k].
-    apply (proj_represented 2 0); auto.
-    destruct k.
-    apply (proj_represented 2 1); auto.
-    apply ComposeRepr_12. exact LengthNat_repr.
-    apply (proj_represented 2 1); auto.
-  - assert (forall i n k,
-               i <= LengthNat n ->
-               nat_rec (fun _ : nat => nat) n (v k) i = MapNatRec (f k) n i).
-    induction i. reflexivity.
-    intros. simpl; rewrite IHi.
-    unfold v.
-    rewrite CoordMapNatRec.
-    apply SetMapNatRec, H.
-    apply (Nat.le_trans _ (S i)).
-    apply le_S, Nat.le_refl. exact H.
-    intros. simpl. apply H. apply Nat.le_refl.
 Qed.
 
 Definition Fix_cumul (rec : forall currentStep:nat, (forall y : nat, y < currentStep -> nat) -> nat)
@@ -1139,6 +958,49 @@ Proof.
     apply fext. intros. rewrite H. reflexivity.
     intros k n. rewrite allP, diagYMergeId. reflexivity.
 Qed.
+
+Lemma MapNat_repr : forall (f : nat -> nat -> nat),
+    FunctionRepresented 2 f
+    -> FunctionRepresented 2 (fun n : nat => MapNat (f n)).
+Proof.
+  intros f frep.
+  apply Fix_param_repr.
+  apply (FunctionRepresented_3_ext
+             (fun param currentStep previousValues : nat =>
+     if LengthNat currentStep <=? 0
+     then NilNat
+     else
+      ConsNat (f param (HeadNat currentStep))
+        (diagY (CoordNat previousValues (diagMerge param (TailNat currentStep)))))).
+  - apply (IfRepresented 3).
+    apply (LebRepresented 3).
+    apply ComposeRepr_13. exact LengthNat_repr.
+    apply (proj_represented 3 1); auto.
+    apply (ConstantRepresented 0).
+    apply (ConstantRepresented 0).
+    apply ComposeRepr_23. exact ConsNat_repr.
+    apply ComposeRepr_23. exact frep.
+    apply (proj_represented 3 0); auto.
+    apply ComposeRepr_13. exact HeadNat_repr.
+    apply (proj_represented 3 1); auto.
+    apply ComposeRepr_13. exact diagY_repr.
+    apply ComposeRepr_23. exact CoordNat_repr.
+    apply (proj_represented 3 2); auto.
+    apply ComposeRepr_23. exact diagMerge_repr.
+    apply (proj_represented 3 0); auto.
+    apply ComposeRepr_13. exact TailNat_repr.
+    apply (proj_represented 3 1); auto.
+  - intros. unfold MapNatRec.
+    destruct (le_lt_dec (LengthNat j) 0).
+    inversion l. rewrite Nat.leb_refl. reflexivity.
+    destruct (LengthNat j <=? 0) eqn:des. 2: reflexivity.
+    apply Nat.leb_le in des. exfalso.
+    apply (Nat.lt_irrefl 0).
+    apply (Nat.lt_le_trans _ _ _ l des).
+  - intros. unfold MapNatRec.
+    destruct (le_lt_dec (LengthNat i) 0). reflexivity.
+    rewrite H. reflexivity.
+Qed. 
 
 Lemma FixBool_repr : forall (rec : forall currentStep:nat, (forall y : nat, y < currentStep -> bool) -> bool),
     FunctionRepresentedBool 2 (fun currentStep previousValues : nat =>
