@@ -420,17 +420,19 @@ Proof.
     intros.
     rewrite Subst_rel.
     apply VarOccursFreeInFormula_rel.
+    rewrite LengthMapNat. apply MapNatTruncated.
     apply VarOccursFreeInFormula_rel in H1.
     destruct H1 as [j [H1 H2]]. exists j.
-    split. rewrite SubstTermsLength. exact H1.
-    rewrite SubstTermsCoord. 2: exact H1.
+    split. rewrite LengthMapNat. exact H1.
+    rewrite CoordMapNat. 2: exact H1.
     rewrite VarOccursInTermVarChange. exact H2.
     apply elemterms, H1.
     destruct (VarOccursInTerm v (CoordNat terms j)) eqn:des.
     2: reflexivity.
     pose proof (VarOccursFreeInFormula_rel v r terms) as [_ H3].
+    exact termsTrunc.
     rewrite H in H3. symmetry. apply H3.
-    exists j. split. exact H1. exact des.
+    exists j. split. exact H1. exact des. exact termsTrunc.
   - (* Lnot *)
     intros. rewrite Subst_not, VarOccursFreeInFormula_not. apply IHprop.
     rewrite VarOccursFreeInFormula_not in H. exact H.
@@ -515,7 +517,7 @@ Proof.
     rewrite H1 in H0. 
     apply andb_prop in H0. apply H0. exact H1.
   - unfold VarOccursFreeInFormula.
-    rewrite SubstSubstNested, SubstTerm_var, Nat.eqb_refl.
+    rewrite SubstSubstNested, SubstTerm_var, (Nat.eqb_refl v).
     2: exact H. 2: exact H0. 2: exact H1.
     rewrite Subst_nosubst, Subst_nosubst, Nat.eqb_refl. reflexivity.
     exact woccur. exact woccur.

@@ -642,27 +642,34 @@ Proof.
   rewrite IHt. reflexivity.
   rewrite <- lenT in l.
   exact (CoordLower _ _ (LengthPositive _ l)).
-  destruct (VarOccursInTerm v (CoordNat t 2)) eqn:des. 2: reflexivity.
-  pose proof (VarOccursInTerm_opHead v t headT) as [_ H1].
-  rewrite H in H1. symmetry. apply H1.
-  exists 0. split. rewrite lenT. auto. exact des.
+  apply Bool.negb_false_iff, Nat.eqb_eq.
+  apply Bool.negb_false_iff, Nat.eqb_eq in H.
+  rewrite SubstTerm_opHead in H. 2: exact headT.
+  apply (f_equal (fun a => CoordNat a 2)) in H.
+  rewrite CoordNat_op, CoordMapNat, CoordRangeNat in H. exact H.
+  rewrite lenT. apply Nat.le_refl.
+  rewrite LengthRangeNat. rewrite lenT. apply Nat.le_refl.
   destruct n.
   (* Addition and multiplication *)
   2: reflexivity.
   rewrite IHt, IHt. reflexivity.
   rewrite <- lenT in l.
   exact (CoordLower _ _ (LengthPositive _ l)).
-  destruct (VarOccursInTerm v (CoordNat t 3)) eqn:des. 2: reflexivity.
-  pose proof (VarOccursInTerm_opHead v t headT) as [_ H1].
-  rewrite H in H1. symmetry. apply H1.
-  exists 1. split.
-  rewrite lenT. apply Nat.le_refl. exact des.
-  rewrite <- lenT in l.
-  exact (CoordLower _ _ (LengthPositive _ l)).
-  destruct (VarOccursInTerm v (CoordNat t 2)) eqn:des. 2: reflexivity.
-  pose proof (VarOccursInTerm_opHead v t headT) as [_ H1].
-  rewrite H in H1. symmetry. apply H1.
-  exists 0. split. rewrite lenT. apply le_n_S, le_0_n. exact des.
+  apply Bool.negb_false_iff, Nat.eqb_eq.
+  apply Bool.negb_false_iff, Nat.eqb_eq in H.
+  rewrite SubstTerm_opHead in H. 2: exact headT.
+  apply (f_equal (fun a => CoordNat a 3)) in H.
+  rewrite CoordNat_op, CoordMapNat, CoordRangeNat in H. exact H.
+  rewrite lenT. apply Nat.le_refl.
+  rewrite LengthRangeNat. rewrite lenT. apply Nat.le_refl.
+  apply CoordLower, LengthPositive. rewrite lenT. auto.
+  apply Bool.negb_false_iff, Nat.eqb_eq.
+  apply Bool.negb_false_iff, Nat.eqb_eq in H.
+  rewrite SubstTerm_opHead in H. 2: exact headT.
+  apply (f_equal (fun a => CoordNat a 2)) in H.
+  rewrite CoordNat_op, CoordMapNat, CoordRangeNat in H. exact H.
+  rewrite lenT. apply le_n_S, le_0_n.
+  rewrite LengthRangeNat. rewrite lenT. apply le_n_S, le_0_n.
   (* Lvar *)
   destruct n. 2: reflexivity.
   unfold setValue.
@@ -735,7 +742,7 @@ Proof.
   rewrite (HAstandardModel_ext
              _ _ _ (SetSetValueIdem varValues v _ _)).
   reflexivity.
-  apply EqNat.beq_nat_false in des.
+  apply Nat.eqb_neq in des.
   rewrite (HAstandardModel_ext
              _ _ _ (SetSetValueCommute varValues _ _ _ _ des)).
   rewrite IHf. reflexivity.
@@ -752,7 +759,7 @@ Proof.
   rewrite (HAstandardModel_ext
              _ _ _ (SetSetValueIdem varValues v _ _)).
   reflexivity.
-  apply EqNat.beq_nat_false in des.
+  apply Nat.eqb_neq in des.
   rewrite (HAstandardModel_ext
              _ _ _ (SetSetValueCommute varValues _ _ _ _ des)).
   rewrite IHf. reflexivity.
@@ -770,20 +777,16 @@ Proof.
   destruct n. 2: reflexivity. simpl.
   assert (LengthNat (TailNat (TailNat f)) = 2) as H.
   { rewrite LengthTailNat, LengthTailNat, lenF. reflexivity. }
-  unfold SubstTerms, MapNat in nooccur.
-  rewrite LengthTailNat, LengthTailNat, lenF in nooccur.
-  simpl in nooccur. 
   rewrite VarIndepTerm, VarIndepTerm. reflexivity.
   apply Bool.negb_false_iff, Nat.eqb_eq.
-  rewrite <- nooccur at 2.
-  rewrite CoordNat_rel.
-  rewrite CoordConsTailNat, CoordConsHeadNat.
-  reflexivity.
+  apply (f_equal (fun n => CoordNat n 3)) in nooccur.
+  rewrite CoordNat_rel, CoordMapNat, CoordTailNat, CoordTailNat in nooccur.
+  exact nooccur. rewrite LengthTailNat, LengthTailNat, lenF. auto.
   apply Bool.negb_false_iff, Nat.eqb_eq.
-  rewrite <- nooccur at 2.
-  rewrite CoordNat_rel.
-  rewrite CoordConsHeadNat.
-  reflexivity.
+  apply (f_equal (fun n => CoordNat n 2)) in nooccur.
+  rewrite CoordNat_rel, CoordMapNat, CoordTailNat, CoordTailNat in nooccur.
+  exact nooccur. rewrite LengthTailNat, LengthTailNat, lenF.
+  apply le_n_S, le_0_n.
 Qed.
 
 Lemma HAstandardModel_SubstTerm : forall t u v varValues,
@@ -808,53 +811,44 @@ Proof.
     + (* case Lop, i.e. PAzero, PAsucc, PAplus or PAmult *)
       destruct (LengthNat t) eqn:lent.
       exfalso; inversion l. clear l.
-      destruct n.
-      exact (HAstandardModelTerm_length1 _ _ headT lent).
+      destruct n. simpl. rewrite MapNilNat.
+      apply HAstandardModelTerm_length2.
+      unfold Lop. rewrite CoordConsHeadNat. reflexivity.
+      rewrite LengthLop. reflexivity.
       destruct n.
       (* case PAzero *)
-      exact (HAstandardModelTerm_length2 _ _ headT lent).
+      simpl. rewrite MapNilNat.
+      apply HAstandardModelTerm_length2.
+      unfold Lop. rewrite CoordConsHeadNat. reflexivity.
+      rewrite LengthLop. reflexivity.
       destruct n.
       (* case PAsucc *)
       rewrite <- (IHt (CoordNat t 2) (CoordLower t 2 tpos)).
-      simpl.
-      do 3 rewrite LengthTailNat.
-      rewrite lent. simpl.
-      rewrite headT.
+      simpl. rewrite MapConsNat, MapNilNat.
       rewrite HAstandardModelTerm_length3.
-      do 2 rewrite CoordConsTailNat.
-      rewrite CoordConsHeadNat.
-      reflexivity.
-      apply CoordConsHeadNat.
-      do 3 rewrite LengthConsNat.
-      do 3 rewrite LengthTailNat. rewrite lent. reflexivity.
+      3: rewrite LengthLop, LengthConsNat; reflexivity.
+      2: unfold Lop; rewrite CoordConsHeadNat; reflexivity.
+      rewrite CoordNat_op, CoordConsHeadNat. reflexivity.
       destruct n.
-      (* case PAsucc or PAmult *)
+      (* case PAplus or PAmult *)
       simpl.
-      do 9 rewrite LengthTailNat.
-      rewrite lent. simpl.
-      do 3 rewrite LengthConsNat. simpl.
-      do 3 rewrite LengthTailNat. rewrite lent. simpl.
+      rewrite MapConsNat, MapConsNat, MapNilNat.
       rewrite HAstandardModelTerm_length4.
-      do 6 rewrite CoordConsTailNat.
-      do 3 rewrite CoordConsHeadNat.
-      do 4 rewrite CoordTailNat.
-      do 3 rewrite CoordConsTailNat.
-      do 2 rewrite CoordConsHeadNat.
+      rewrite CoordNat_op, CoordNat_op.
+      unfold Lop at 1. rewrite CoordConsTailNat, CoordConsHeadNat.
+      rewrite CoordConsHeadNat.
+      rewrite CoordConsTailNat, CoordConsHeadNat.
       rewrite IHt, IHt. reflexivity.
       exact (CoordLower t 3 tpos).
       exact (CoordLower t 2 tpos).
-      do 2 rewrite CoordConsHeadNat. exact headT.
-      do 4 rewrite LengthConsNat.
-      do 4 rewrite LengthTailNat.
-      do 3 rewrite LengthConsNat.
-      simpl.
-      do 3 rewrite LengthTailNat. rewrite lent. reflexivity.
+      unfold Lop. rewrite CoordConsHeadNat. reflexivity.
+      rewrite LengthLop, LengthConsNat, LengthConsNat. reflexivity.
       (* case length too high *)
       apply HAstandardModelTerm_length5.
       rewrite <- headT.
-      apply SubstLopTermHead.
-      rewrite SubstLopTermLength.
-      rewrite lent.
+      unfold Lop. rewrite CoordConsHeadNat.
+      symmetry. exact headT.
+      rewrite LengthLop, LengthMapNat, LengthRangeNat.
       do 5 apply le_n_S. apply le_0_n.
     + (* case Lvar *)
       destruct n. 2: reflexivity. clear IHt.
@@ -1006,7 +1000,7 @@ Proof.
   destruct n.
   (* Lrel *)
   2: reflexivity.
-  rewrite HAstandardModel_rel, SubstTermsLength.
+  rewrite HAstandardModel_rel, LengthMapNat.
   rewrite LengthTailNat, LengthTailNat.
   destruct (LengthNat prop) eqn:lenProp. reflexivity.
   destruct n. reflexivity.
@@ -1014,7 +1008,7 @@ Proof.
   destruct n. reflexivity.
   destruct n. 2: reflexivity. simpl (pred (pred 4)).
   rewrite Nat.eqb_refl, Nat.eqb_refl.
-  rewrite SubstTermsCoord, SubstTermsCoord.
+  rewrite CoordMapNat, CoordMapNat.
   rewrite HAstandardModel_SubstTerm, HAstandardModel_SubstTerm.
   rewrite CoordTailNat, CoordTailNat.
   rewrite CoordTailNat, CoordTailNat.

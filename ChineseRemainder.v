@@ -92,14 +92,14 @@ Proof.
     exact (H1 _ H3). exfalso. rewrite <- H in H3.
     apply le_S_n in H3. inversion H3.
     assert (0 < LengthNat modulos)%nat as lenpos.
-    { rewrite <- H. apply le_n_S, le_0_n. }
+    { rewrite <- H. apply le_n_S, Nat.le_0_l. }
     assert (0 < CoordNat modulos 0)%nat as c0pos.
     { specialize (H1 O lenpos).
-      exact (Nat.le_lt_trans _ _ _ (le_0_n _) H1). }
+      exact (Nat.le_lt_trans _ _ _ (Nat.le_0_l _) H1). }
     assert (0 < CoordNat modulos 1)%nat as c1pos.
     { specialize (H1 1%nat).
       apply (Nat.le_lt_trans _ (CoordNat remainders 1)).
-      apply le_0_n. apply H1. rewrite <- H. apply le_n_S, le_n_S, le_0_n. }
+      apply Nat.le_0_l. apply H1. rewrite <- H. apply le_n_S, le_n_S, Nat.le_0_l. }
     destruct (ChineseRemainder_two
                 (Z.of_nat (CoordNat modulos 0))
                 (Z.of_nat (CoordNat modulos 1))
@@ -109,9 +109,9 @@ Proof.
     apply (Nat2Z.inj_lt 0). exact c1pos.
     split. apply Zle_0_nat. apply Nat2Z.inj_lt, H1, lenpos.
     split. apply Zle_0_nat. apply Nat2Z.inj_lt, H1.
-    rewrite <- H. apply le_n_S, le_n_S, le_0_n.
+    rewrite <- H. apply le_n_S, le_n_S, Nat.le_0_l.
     apply H2. split. apply Nat.le_refl.
-    rewrite <- H. apply le_n_S, le_n_S, le_0_n.
+    rewrite <- H. apply le_n_S, le_n_S, Nat.le_0_l.
     destruct (IHlen (ConsNat (CoordNat modulos 0 * CoordNat modulos 1)
                              (TailNat (TailNat modulos)))
                     (ConsNat (Z.to_nat x2) (TailNat (TailNat remainders)))).
@@ -137,10 +137,10 @@ Proof.
       apply rel_prime_sym. rewrite Nat2Z.inj_mul.
       apply rel_prime_mult.
       rewrite CoordTailNat, CoordTailNat.
-      apply rel_prime_sym, H2. split. apply le_n_S, le_0_n.
+      apply rel_prime_sym, H2. split. apply le_n_S, Nat.le_0_l.
       rewrite <- H. apply le_n_S. apply H4.
       rewrite CoordTailNat, CoordTailNat.
-      apply rel_prime_sym, H2. split. apply le_n_S, le_n_S, le_0_n.
+      apply rel_prime_sym, H2. split. apply le_n_S, le_n_S, Nat.le_0_l.
       rewrite <- H. apply le_n_S. apply H4.
       rewrite CoordConsTailNat.
       rewrite CoordTailNat, CoordTailNat, CoordTailNat, CoordTailNat.
@@ -149,7 +149,7 @@ Proof.
     + exists x. intros i H4.
       rewrite LengthConsNat, LengthTailNat, LengthTailNat, <- H in H3.
       simpl in H3.
-      assert (0 < S len)%nat by apply le_n_S, le_0_n.
+      assert (0 < S len)%nat by apply le_n_S, Nat.le_0_l.
       destruct i.
       * specialize (H3 O H5).
         rewrite CoordConsHeadNat, CoordConsHeadNat in H3.

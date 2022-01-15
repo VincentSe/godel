@@ -981,7 +981,7 @@ Proof.
   rewrite SubstTerm_var, SubstTerm_PAnat, SubstTerm_PAnat. simpl.
   apply (LeqTrans _ _ (PAnat ((j-i) + i))).
   apply PAplus_normalize.
-  rewrite Nat.add_comm, <- Minus.le_plus_minus. apply LeqRefl.
+  rewrite Nat.sub_add. apply LeqRefl.
   apply IsLterm_PAnat. exact ilej.
   apply IsLterm_PAnat. apply IsLterm_PAnat.
   apply PAnat_closed. apply PAnat_closed.
