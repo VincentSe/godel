@@ -215,7 +215,7 @@ Proof.
     -> IsProofLoop IsAxiom (ConcatNat f g) (LengthNat (ConcatNat f g)) = true).
   induction l.
   - intros. rewrite LengthConcatNat, H.
-    unfold ConcatNat. rewrite H. exact H1.
+    rewrite ConcatLength0. exact H1. exact H.
   - intros. rewrite LengthConcatNat, H. simpl.
     apply andb_true_intro.
     rewrite (HeadTailDecompNat f), LengthConsNat in H0.

@@ -116,7 +116,7 @@ Proof.
     rewrite Nat.div_add. 2: discriminate.
     change (1/2) with 0. rewrite Nat.add_0_l.
     rewrite Nat.mul_assoc. apply Nat.le_refl.
-Qed. 
+Qed.
 
 Lemma natTriangleSucc : forall n:nat, natTriangle (S n) = natTriangle n + S n.
 Proof.
@@ -240,7 +240,7 @@ Definition HeadNat (n : nat) : nat :=
   match LengthNat n with
   | O => NilNat
   | S _ => diagX (diagY n)
-  end. 
+  end.
 Definition TailNat (n : nat) : nat :=
   match LengthNat n with
   | O => NilNat
@@ -284,12 +284,12 @@ Proof.
   induction p. reflexivity.
   intros. simpl.
   rewrite IHp. reflexivity.
-Qed. 
+Qed.
 
 Lemma LengthNilNat : LengthNat NilNat = 0.
 Proof.
   reflexivity.
-Qed. 
+Qed.
 
 Lemma LengthConsNat : forall h n, LengthNat (ConsNat h n) = S (LengthNat n).
 Proof.
@@ -310,7 +310,7 @@ Proof.
   - intro n. rewrite Nat.sub_0_r. reflexivity.
   - intro n. simpl. rewrite IHk, LengthTailNat.
     destruct (LengthNat n); reflexivity.
-Qed. 
+Qed.
 
 Definition CoordNat (list i : nat) : nat := HeadNat (NthTailNat list i).
 
@@ -319,7 +319,7 @@ Lemma CoordNthTailNat : forall j i n,
 Proof.
   induction j. reflexivity.
   intros. simpl. rewrite IHj. reflexivity.
-Qed. 
+Qed.
 
 Lemma HeadTailDecompNat : forall n:nat,
     0 < LengthNat n -> n = ConsNat (CoordNat n 0) (TailNat n).
@@ -333,24 +333,34 @@ Proof.
   rewrite diagSplitMergeId. symmetry. exact H0.
 Qed.
 
+Lemma LengthNat_wf : well_founded (fun n p : nat => LengthNat n < LengthNat p).
+Proof.
+  assert (forall l x,
+             LengthNat x <= l
+             -> Acc (fun n p : nat => LengthNat n < LengthNat p) x).
+  induction l.
+  - intros. apply Acc_intro.
+    intros y H0. exfalso. inversion H.
+    rewrite H2 in H0. inversion H0.
+  - intros. apply Acc_intro. intros y H0.
+    apply IHl. apply le_S_n.
+    apply (Nat.le_trans _ _ _ H0). exact H.
+  - intros x. apply (H (LengthNat x)). apply Nat.le_refl.
+Qed.
+
 Lemma Seq_rect : forall (P : nat -> Type),
     (forall n:nat, LengthNat n = O -> P n)
     -> (forall hd tl:nat, P tl -> P (ConsNat hd tl))
     -> forall n:nat, P n.
 Proof.
-  assert (forall l (P : nat -> Type),
-    (forall n:nat, LengthNat n = O -> P n)
-    -> (forall hd tl:nat, P tl -> P (ConsNat hd tl))
-    -> forall n:nat, LengthNat n = l -> P n).
-  induction l.
-  - intros. apply X. exact H.
-  - intros. rewrite (HeadTailDecompNat n).
-    apply X0. apply (IHl P X X0).
-    rewrite LengthTailNat, H. reflexivity.
-    rewrite H. apply le_n_S, le_0_n.
-  - intros. apply (X (LengthNat n) P X0 X1).
-    reflexivity.
-Qed. 
+  intros P P0 Pcons.
+  apply (Fix LengthNat_wf). intros n IHn.
+  destruct (le_lt_dec (LengthNat n) 0) as [l|l].
+  - apply P0, Nat.le_0_r, l.
+  - rewrite (HeadTailDecompNat n l). apply Pcons.
+    apply IHn. rewrite LengthTailNat.
+    destruct (LengthNat n). inversion l. apply Nat.le_refl.
+Qed.
 
 Lemma CoordConsHeadNat : forall (n h : nat),
     CoordNat (ConsNat h n) O = h.
@@ -380,7 +390,7 @@ Qed.
 Lemma CoordTailNat : forall n i, CoordNat (TailNat n) i = CoordNat n (S i).
 Proof.
   reflexivity.
-Qed. 
+Qed.
 
 Lemma diagMergeIncr : forall a b c d,
     a <= b
@@ -416,7 +426,7 @@ Proof.
   apply (Nat.le_lt_trans _ (diagMerge y z)).
   apply diagMergeIncr. exact H. apply Nat.le_refl.
   apply H1, H0.
-Qed. 
+Qed.
 
 Lemma biggestTrianglePos : forall n:nat, 0 < biggestTriangle (S n).
 Proof.
@@ -534,31 +544,180 @@ Proof.
   apply (Nat.le_trans _ (NthTailNat n i)).
   2: apply NthTailLe.
   unfold diagY.
-  apply Nat.le_sub_l. 
+  apply Nat.le_sub_l.
 Qed.
 
-
-(* Concatenation of lists n and p, under the hypothesis that LengthNat n = lengthN. *)
-Fixpoint ConcatWithLength (n lengthN p : nat) : nat :=
-  match lengthN with
-  | O => p
-  | S j => ConsNat (diagX n) (ConcatWithLength (diagY n) j p)
-  end.
-Definition ConcatNat (n p : nat) : nat :=
-  ConcatWithLength (diagY n) (LengthNat n) p.
-
-Lemma LengthConcatNat : forall (n p : nat),
-    LengthNat (ConcatNat n p) = LengthNat n + LengthNat p.
+Lemma LengthPositive : forall n:nat, 0 < LengthNat n -> 0 < n.
 Proof.
-  intros. unfold ConcatNat, LengthNat.
-  revert p.
-  generalize (diagY n) as k.
-  generalize (diagX n) as lengthK.
-  clear n.
-  induction lengthK.
-  - reflexivity.
-  - intros k p. simpl. unfold ConsNat, LengthNat.
-    rewrite diagXMergeId, IHlengthK. reflexivity.
+  intros [|n] H.
+  - exfalso. inversion H.
+  - apply le_n_S, le_0_n.
+Qed.
+
+Lemma TruncatedDiffNat : forall n p,
+    LengthNat n = LengthNat p
+    -> NthTailNat n (LengthNat n) = NthTailNat p (LengthNat p)
+    -> n <> p
+    -> { k:nat | k < LengthNat n /\ CoordNat n k <> CoordNat p k }.
+Proof.
+  apply (Seq_rect (fun n => forall p,
+    LengthNat n = LengthNat p
+    -> NthTailNat n (LengthNat n) = NthTailNat p (LengthNat p)
+    -> n <> p
+    -> { k:nat | k < LengthNat n /\ CoordNat n k <> CoordNat p k })).
+  - intros. exfalso. rewrite H in H1. rewrite H in H0.
+    rewrite <- H0 in H1. simpl in H1. contradict H2. exact H1.
+  - intros.
+    rewrite LengthConsNat in H0.
+    rewrite LengthConsNat, NthTailConsNat in H1.
+    destruct (Nat.eq_dec tl (TailNat p)).
+    + subst tl. exists 0. split.
+      rewrite LengthConsNat. apply le_n_S, le_0_n.
+      rewrite CoordConsHeadNat. intro abs. subst hd.
+      assert (0 < LengthNat p) as ppos.
+      { rewrite <- H0. apply le_n_S, le_0_n. }
+      rewrite <- (HeadTailDecompNat _ ppos) in H2.
+      apply H2. reflexivity.
+    + specialize (H (TailNat p)). destruct H as [k H].
+      rewrite LengthTailNat, <- H0. reflexivity.
+      rewrite LengthTailNat.
+      simpl. rewrite H1.
+      replace (LengthNat p) with (S (pred (LengthNat p))) at 1.
+      reflexivity.
+      rewrite <- H0. reflexivity. exact n.
+      exists (S k). split. rewrite LengthConsNat.
+      apply le_n_S, H.
+      rewrite CoordConsTailNat.
+      rewrite CoordTailNat in H. apply H.
+Qed.
+
+Lemma TruncatedEqNat : forall n p,
+    LengthNat n = LengthNat p
+    -> NthTailNat n (LengthNat n) = NthTailNat p (LengthNat p)
+    -> (forall k, k < LengthNat n -> CoordNat n k = CoordNat p k)
+    -> n = p.
+Proof.
+  intros. destruct (Nat.eq_dec n p).
+  exact e. exfalso.
+  pose proof (TruncatedDiffNat n p H H0 n0) as [k H2].
+  destruct H2. specialize (H1 k H2).
+  apply H3, H1.
+Qed. 
+
+(* Concatenation defined tail-recursively. This uses a double reversal of the
+   first list, but it is necessary to get access to general recursive functions. *)
+Definition ConcatReverseRec (n p : nat) : nat -> prod nat nat :=
+  nat_rec (fun _ => prod nat nat) (n,p)
+          (fun _ val
+           => let (i,j) := val in
+             (TailNat i, ConsNat (HeadNat i) j)).
+Definition ConcatReverseNat (n p : nat) : nat :=
+  snd (ConcatReverseRec n p (LengthNat n)).
+Definition ReverseNat (n : nat) : nat := ConcatReverseNat n NilNat.
+Definition ConcatNat n p : nat := ConcatReverseNat (ReverseNat n) p.
+
+Lemma ConcatReverseConsRec : forall step n p k,
+    ConcatReverseRec (ConsNat k n) p (S step)
+    = ConcatReverseRec n (ConsNat k p) step.
+Proof.
+  induction step.
+  - intros. simpl.
+    rewrite TailConsNat, HeadConsNat. reflexivity.
+  - intros. 
+    change (ConcatReverseRec (ConsNat k n) p (S (S step)))
+      with (let (i, j) := ConcatReverseRec (ConsNat k n) p (S step) in
+            (TailNat i, ConsNat (HeadNat i) j)).
+    rewrite IHstep. reflexivity.
+Qed.
+
+Lemma ConcatReverseNil : forall p,
+    ConcatReverseNat NilNat p = p.
+Proof.
+  intro p. unfold ConcatReverseNat.
+  change (LengthNat NilNat) with 0.
+  simpl. reflexivity.
+Qed.
+
+Lemma ConcatReverseConsNat : forall n p k,
+    ConcatReverseNat (ConsNat k n) p = ConcatReverseNat n (ConsNat k p).
+Proof.
+  intros. unfold ConcatReverseNat.
+  rewrite LengthConsNat.
+  rewrite ConcatReverseConsRec. reflexivity.
+Qed.
+
+Lemma LengthConcatReverseNat : forall n p : nat,
+    LengthNat (ConcatReverseNat n p) = LengthNat n + LengthNat p.
+Proof.
+  assert (forall l n p,
+             l = LengthNat n ->
+             LengthNat (ConcatReverseNat n p) = LengthNat n + LengthNat p).
+  induction l.
+  - intros. unfold ConcatReverseNat. rewrite <- H.
+    simpl. reflexivity.
+  - intros.
+    assert (0 < LengthNat n).
+    { rewrite <- H. apply le_n_S, le_0_n. }
+    rewrite (HeadTailDecompNat n H0).
+    rewrite ConcatReverseConsNat, LengthConsNat, IHl.
+    rewrite LengthTailNat, LengthConsNat.
+    destruct (LengthNat n). discriminate H.
+    simpl. rewrite Nat.add_succ_r. reflexivity.
+    rewrite LengthTailNat.
+    destruct (LengthNat n). discriminate H.
+    simpl. inversion H. reflexivity.
+  - intros. apply (H (LengthNat n)). reflexivity.
+Qed.
+
+Lemma CoordConcatReverseNatSecond : forall f g k,
+    CoordNat (ConcatReverseNat f g) (k + LengthNat f) = CoordNat g k.
+Proof.
+  apply (Seq_rect (fun f => forall g k,
+    CoordNat (ConcatReverseNat f g) (k + LengthNat f) = CoordNat g k)).
+  - intros. unfold ConcatReverseNat. rewrite H, Nat.add_0_r.
+    simpl. reflexivity.
+  - intros. rewrite ConcatReverseConsNat.
+    specialize (H (ConsNat hd g) (S k)).
+    rewrite LengthConsNat, Nat.add_succ_r.
+    simpl in H. rewrite H.
+    rewrite CoordConsTailNat. reflexivity.
+Qed.
+
+Lemma CoordConcatReverseNatFirst : forall n g k,
+    k < LengthNat n
+    -> CoordNat (ConcatReverseNat n g) k = CoordNat n (LengthNat n - S k).
+Proof.
+  apply (Seq_rect (fun n => forall g k,
+    k < LengthNat n
+    -> CoordNat (ConcatReverseNat n g) k = CoordNat n (LengthNat n - S k))).
+  - intros. exfalso. rewrite H in H0. inversion H0.
+  - intros. rewrite LengthConsNat in H0.
+    rewrite ConcatReverseConsNat, LengthConsNat. simpl.
+    apply Nat.le_succ_r in H0. destruct H0.
+    + rewrite H. destruct (LengthNat tl - k) eqn:des.
+      exfalso. apply Nat.sub_0_le in des.
+      apply (Nat.lt_irrefl k). exact (Nat.lt_le_trans _ _ _ H0 des).
+      rewrite CoordConsTailNat.
+      apply f_equal.
+      apply Nat.add_sub_eq_l.
+      simpl. rewrite <- Nat.add_succ_r, <- des.
+      rewrite Nat.add_comm. rewrite Nat.sub_add.
+      reflexivity. apply (Nat.le_trans _ (S k)).
+      apply le_S, Nat.le_refl.
+      exact H0. exact H0.
+    + inversion H0.
+      change (LengthNat tl) with (0 + LengthNat tl) at 1.
+      rewrite CoordConcatReverseNatSecond.
+      rewrite Nat.sub_diag.
+      rewrite CoordConsHeadNat, CoordConsHeadNat. reflexivity.
+Qed.
+
+Lemma ConcatLength0 : forall n p,
+    LengthNat n = 0
+    -> ConcatNat n p = p.
+Proof.
+  intros. unfold ConcatNat, ConcatReverseNat, ReverseNat.
+  rewrite LengthConcatReverseNat, H. reflexivity.
 Qed.
 
 Lemma ConcatNilNat : forall n, ConcatNat NilNat n = n.
@@ -566,56 +725,116 @@ Proof.
   reflexivity.
 Qed.
 
-Lemma ConcatConsNat : forall i j k,
-    ConcatNat (ConsNat i j) k = ConsNat i (ConcatNat j k).
+Lemma ConcatReverseNatTruncated : forall n p,
+    NthTailNat (ConcatReverseNat n p) (LengthNat (ConcatReverseNat n p))
+    = NthTailNat p (LengthNat p).
 Proof.
-  intros. unfold ConcatNat, ConsNat, LengthNat.
-  rewrite diagXMergeId, diagYMergeId.
-  simpl. rewrite diagXMergeId, diagYMergeId.
-  generalize (diagX j) as a.
-  generalize (diagY j) as b. clear j. intros b a.
-  revert a b i k.
-  induction a. reflexivity.
+  assert (forall n p, NthTailNat (ConcatReverseNat n p) (LengthNat n) = p).
+  { apply (Seq_rect (fun n => forall p, NthTailNat (ConcatReverseNat n p) (LengthNat n) = p)).
+    intros. unfold ConcatReverseNat. rewrite H. reflexivity.
+    intros. rewrite ConcatReverseConsNat, LengthConsNat.
+    change (S (LengthNat tl)) with (1 + LengthNat tl).
+    rewrite Nat.add_comm.
+    rewrite <- NthTailNthTailNat. rewrite H. simpl.
+    rewrite TailConsNat. reflexivity. }
+  intros. rewrite LengthConcatReverseNat.
+  rewrite <- NthTailNthTailNat. rewrite H. reflexivity.
+Qed.
+
+Lemma LengthReverseNat : forall n,
+    LengthNat (ReverseNat n) = LengthNat n.
+Proof.
+  intros. unfold ReverseNat.
+  rewrite LengthConcatReverseNat.
+  change (LengthNat NilNat) with 0.
+  rewrite Nat.add_0_r. reflexivity.
+Qed.
+
+Lemma CoordReverseNat : forall n k,
+    k < LengthNat n ->
+    CoordNat (ReverseNat n) k = CoordNat n (LengthNat n - S k).
+Proof.
+  intros. apply CoordConcatReverseNatFirst. exact H.
+Qed.
+
+Lemma LengthConcatNat : forall (n p : nat),
+    LengthNat (ConcatNat n p) = LengthNat n + LengthNat p.
+Proof.
   intros.
-  simpl.
-  rewrite IHa. reflexivity.
+  unfold ConcatNat.
+  rewrite LengthConcatReverseNat, LengthReverseNat.
+  reflexivity.
+Qed. 
+
+Lemma ConcatNatTruncated : forall n p,
+    NthTailNat (ConcatNat n p) (LengthNat (ConcatNat n p))
+    = NthTailNat p (LengthNat p).
+Proof.
+  intros n p. apply ConcatReverseNatTruncated.
 Qed.
 
 Lemma CoordConcatNatFirst : forall f g k,
     k < LengthNat f
     -> CoordNat (ConcatNat f g) k = CoordNat f k.
 Proof.
-  apply (Seq_rect (fun f => forall g k,
-                        k < LengthNat f
-                        -> CoordNat (ConcatNat f g) k = CoordNat f k)).
-  - intros. rewrite H in H0. inversion H0.
-  - intros.
-    rewrite ConcatConsNat.
-    destruct k. rewrite CoordConsHeadNat, CoordConsHeadNat. reflexivity.
-    rewrite CoordConsTailNat, CoordConsTailNat.
-    apply H. rewrite LengthConsNat in H0.
-    apply le_S_n in H0. exact H0.
+  intros. unfold ConcatNat.
+  rewrite CoordConcatReverseNatFirst.
+  2: rewrite LengthReverseNat; exact H.
+  rewrite LengthReverseNat, CoordReverseNat.
+  apply f_equal. destruct (LengthNat f). inversion H.
+  apply Nat.add_sub_eq_l. simpl.
+  rewrite Nat.sub_add. reflexivity.
+  apply le_S_n. exact H.
+  destruct (LengthNat f). inversion H. simpl.
+  apply le_n_S. apply Nat.le_sub_l.
+Qed. 
+
+Lemma ConcatConsNat : forall hd tl k,
+    ConcatNat (ConsNat hd tl) k = ConsNat hd (ConcatNat tl k).
+Proof.
+  intros. apply TruncatedEqNat. 
+  - rewrite LengthConcatNat.
+    rewrite LengthConsNat, LengthConsNat.
+    rewrite LengthConcatNat.
+    reflexivity.
+  - rewrite ConcatNatTruncated.
+    rewrite LengthConsNat. 
+    change (NthTailNat k (LengthNat k) =
+  NthTailNat (TailNat (ConsNat hd (ConcatNat tl k)))
+    (LengthNat (ConcatNat tl k))).
+    rewrite TailConsNat, ConcatNatTruncated. reflexivity.
+  - intros. rewrite LengthConcatNat, LengthConsNat in H.
+    simpl in H. apply le_S_n in H. destruct k0.
+    + rewrite CoordConsHeadNat.
+      rewrite CoordConcatNatFirst. apply CoordConsHeadNat.
+      rewrite LengthConsNat. 
+      apply le_n_S, le_0_n.
+    + rewrite CoordConsTailNat.
+      destruct (le_lt_dec (LengthNat tl) k0).
+      * unfold ConcatNat.
+        rewrite <- (Nat.sub_add _ _ l). 
+        pose proof (LengthReverseNat tl).
+        rewrite <- H0 at 4.
+        rewrite CoordConcatReverseNatSecond. clear H0.
+        pose proof (LengthReverseNat (ConsNat hd tl)).
+        rewrite LengthConsNat in H0.
+        rewrite <- Nat.add_succ_r.
+        rewrite <- H0.
+        rewrite CoordConcatReverseNatSecond. reflexivity.
+      * rewrite CoordConcatNatFirst.
+        2: rewrite LengthConsNat; apply le_n_S; exact l.
+        rewrite CoordConsTailNat.
+        rewrite CoordConcatNatFirst. reflexivity. exact l.
 Qed.
 
 Lemma CoordConcatNatSecond : forall f g k,
     CoordNat (ConcatNat f g) (k + LengthNat f) = CoordNat g k.
 Proof.
-  assert (forall l f g k,
-             l = LengthNat f
-             -> CoordNat (ConcatNat f g) (k + LengthNat f) = CoordNat g k).
-  induction l.
-  - intros. unfold ConcatNat, LengthNat. unfold LengthNat in H.
-    rewrite <- H.
-    simpl. rewrite Nat.add_0_r. reflexivity.
-  - intros.
-    rewrite (HeadTailDecompNat f) at 1.
-    rewrite ConcatConsNat, <- H.
-    rewrite Nat.add_succ_r, CoordConsTailNat.
-    replace l with (LengthNat (TailNat f)).
-    apply IHl. rewrite LengthTailNat, <- H. reflexivity.
-    rewrite LengthTailNat, <- H. reflexivity.
-    rewrite <- H. apply le_n_S, le_0_n.
-  - intros. apply (H (LengthNat f)). reflexivity.
+  apply (Seq_rect (fun f => forall g k,
+                       CoordNat (ConcatNat f g) (k + LengthNat f) = CoordNat g k)).
+  - intros. rewrite ConcatLength0, H, Nat.add_0_r. reflexivity. exact H.
+  - intros. rewrite ConcatConsNat, LengthConsNat, Nat.add_succ_r.
+    rewrite CoordConsTailNat, H. reflexivity.
 Qed.
 
 Lemma NthTailConcatNat : forall n p k,
@@ -623,16 +842,9 @@ Lemma NthTailConcatNat : forall n p k,
 Proof.
   apply (Seq_rect (fun n =>  forall p k,
     NthTailNat (ConcatNat n p) (LengthNat n + k) = NthTailNat p k)).
-  - intros. unfold ConcatNat. rewrite H. reflexivity.
+  - intros. rewrite ConcatLength0. rewrite H. reflexivity. exact H.
   - intros. rewrite ConcatConsNat, LengthConsNat.
     simpl. rewrite TailConsNat, H. reflexivity.
-Qed. 
-
-Lemma LengthPositive : forall n:nat, 0 < LengthNat n -> 0 < n.
-Proof.
-  intros [|n] H.
-  - exfalso. inversion H.
-  - apply le_n_S, le_0_n.
 Qed.
 
 Lemma diagMerge_param_lt : forall pn i,
@@ -642,7 +854,7 @@ Proof.
   intros.
   rewrite <- (diagSplitMergeId pn) at 3.
   apply diagMergeIncrLt. apply Nat.le_refl.
-  apply CoordLower, LengthPositive, H. 
+  apply CoordLower, LengthPositive, H.
 Qed.
 
 (* Fold of a natural number interpreted as a tree. The list interpretation
@@ -664,7 +876,7 @@ Definition TreeFoldNat_nil : forall {A : Type} (f : nat -> (nat -> A) -> A) (b :
     TreeFoldNat f b 0 = b.
 Proof.
   reflexivity.
-Qed. 
+Qed.
 
 (* Find number k in sequence n, from beginning to coordinate last excluded.
    Tail recursive. *)
@@ -719,7 +931,7 @@ Proof.
   intros. unfold MapNatRec.
   destruct (le_lt_dec (LengthNat x) 0). reflexivity.
   rewrite H0. reflexivity.
-Qed. 
+Qed.
 
 Lemma MapConsNat : forall f h tl,
     MapNat f (ConsNat h tl) = ConsNat (f h) (MapNat f tl).
@@ -730,7 +942,7 @@ Proof.
   intros. unfold MapNatRec.
   destruct (le_lt_dec (LengthNat x) 0). reflexivity.
   rewrite H. reflexivity.
-Qed. 
+Qed.
 
 Lemma LengthMapNat : forall f n, LengthNat (MapNat f n) = LengthNat n.
 Proof.
@@ -764,9 +976,9 @@ Proof.
   intro f. apply Seq_rect.
   - intros. rewrite MapLength0Nat, MapLength0Nat.
     reflexivity. rewrite LengthTailNat, H. reflexivity. exact H.
-  - intros hd tl H. 
+  - intros hd tl H.
     rewrite MapConsNat, TailConsNat, TailConsNat. reflexivity.
-Qed. 
+Qed.
 
 Lemma MapNatExt : forall f g n,
     (forall k, k < LengthNat n -> f (CoordNat n k) = g (CoordNat n k))
@@ -814,10 +1026,10 @@ Proof.
     MapNat f (ConcatNat l h) = ConcatNat (MapNat f l) (MapNat f h))).
   - intros. rewrite (MapLength0Nat f n). 2: exact H.
     rewrite ConcatNilNat. apply f_equal.
-    unfold ConcatNat. rewrite H. reflexivity.
+    apply ConcatLength0, H.
   - intros. rewrite ConcatConsNat, MapConsNat, MapConsNat, ConcatConsNat, H.
     reflexivity.
-Qed. 
+Qed.
 
 Fixpoint RangeNat (start len : nat) : nat :=
   match len with
@@ -839,7 +1051,7 @@ Lemma CoordRangeNat : forall len start k,
 Proof.
   induction len.
   intros. inversion H.
-  intros. simpl. 
+  intros. simpl.
   destruct k. rewrite CoordConsHeadNat, Nat.add_0_r. reflexivity.
   rewrite CoordConsTailNat, IHlen, Nat.add_succ_r. reflexivity.
   apply le_S_n, H.
@@ -851,56 +1063,6 @@ Proof.
   induction len.
   reflexivity. intros. simpl. rewrite TailConsNat.
   apply IHlen.
-Qed. 
-
-Lemma TruncatedDiffNat : forall n p,
-    LengthNat n = LengthNat p
-    -> NthTailNat n (LengthNat n) = NthTailNat p (LengthNat p)
-    -> n <> p
-    -> { k:nat | k < LengthNat n /\ CoordNat n k <> CoordNat p k }.
-Proof.
-  apply (Seq_rect (fun n => forall p,
-    LengthNat n = LengthNat p
-    -> NthTailNat n (LengthNat n) = NthTailNat p (LengthNat p)
-    -> n <> p
-    -> { k:nat | k < LengthNat n /\ CoordNat n k <> CoordNat p k })).
-  - intros. exfalso. rewrite H in H1. rewrite H in H0.
-    rewrite <- H0 in H1. simpl in H1. contradict H2. exact H1.
-  - intros.
-    rewrite LengthConsNat in H0.
-    rewrite LengthConsNat, NthTailConsNat in H1.
-    destruct (Nat.eq_dec tl (TailNat p)).
-    + subst tl. exists 0. split.
-      rewrite LengthConsNat. apply le_n_S, le_0_n.
-      rewrite CoordConsHeadNat. intro abs. subst hd.
-      assert (0 < LengthNat p) as ppos.
-      { rewrite <- H0. apply le_n_S, le_0_n. }
-      rewrite <- (HeadTailDecompNat _ ppos) in H2.
-      apply H2. reflexivity.
-    + specialize (H (TailNat p)). destruct H as [k H].
-      rewrite LengthTailNat, <- H0. reflexivity.
-      rewrite LengthTailNat.
-      simpl. rewrite H1.
-      replace (LengthNat p) with (S (pred (LengthNat p))) at 1.
-      reflexivity.
-      rewrite <- H0. reflexivity. exact n.
-      exists (S k). split. rewrite LengthConsNat.
-      apply le_n_S, H.
-      rewrite CoordConsTailNat.
-      rewrite CoordTailNat in H. apply H. 
-Qed.
-
-Lemma TruncatedEqNat : forall n p,
-    LengthNat n = LengthNat p
-    -> NthTailNat n (LengthNat n) = NthTailNat p (LengthNat p)
-    -> (forall k, k < LengthNat n -> CoordNat n k = CoordNat p k)
-    -> n = p.
-Proof.
-  intros. destruct (Nat.eq_dec n p).
-  exact e. exfalso.
-  pose proof (TruncatedDiffNat n p H H0 n0) as [k H2].
-  destruct H2. specialize (H1 k H2). 
-  apply H3, H1.
 Qed.
 
 Lemma MapNatDiff : forall f p,
@@ -909,14 +1071,14 @@ Lemma MapNatDiff : forall f p,
     -> { j:nat | j < LengthNat p /\ f (CoordNat p j) <> CoordNat p j }.
 Proof.
   intros f p ptrunc H.
-  pose proof (TruncatedDiffNat (MapNat f p) p) as [k H1]. 
-  apply LengthMapNat. 
+  pose proof (TruncatedDiffNat (MapNat f p) p) as [k H1].
+  apply LengthMapNat.
   rewrite LengthMapNat. rewrite MapNatTruncated.
   symmetry. exact ptrunc. exact H.
   destruct H1. rewrite LengthMapNat in H0. exists k. split.
   exact H0. rewrite CoordMapNat in H1. exact H1. exact H0.
 Qed.
- 
+
 Fixpoint MaxSeqNatRec (l i : nat) : nat :=
   match i with
   | O => O
@@ -945,25 +1107,15 @@ Qed.
 Lemma MaxConcatNat : forall l h,
     MaxSeqNat (ConcatNat l h) = Nat.max (MaxSeqNat l) (MaxSeqNat h).
 Proof.
-  assert (forall n l h,
-             LengthNat l = n ->
-    MaxSeqNat (ConcatNat l h) = Nat.max (MaxSeqNat l) (MaxSeqNat h)).
-  induction n.
-  - intros. unfold MaxSeqNat.
-    rewrite LengthConcatNat, H. simpl.
-    unfold ConcatNat. rewrite H. reflexivity.
-  - intros. 
-    assert (0 < LengthNat l).
-    { rewrite H. apply le_n_S, le_0_n. }
-    pose proof (HeadTailDecompNat l H0).
-    rewrite H1.
-    rewrite ConcatConsNat, MaxConsNat, MaxConsNat, IHn.
+  apply (Seq_rect (fun l => forall h,
+                       MaxSeqNat (ConcatNat l h) = Nat.max (MaxSeqNat l) (MaxSeqNat h))).
+  - intros. rewrite ConcatLength0.
+    replace (MaxSeqNat n) with 0. reflexivity.
+    unfold MaxSeqNat. rewrite H. reflexivity. exact H.
+  - intros. rewrite ConcatConsNat, MaxConsNat, MaxConsNat, H.
     rewrite Nat.max_assoc. reflexivity.
-    rewrite LengthTailNat. destruct (LengthNat l).
-    inversion H0. rewrite H. reflexivity.
-  - intros. apply (H (LengthNat l)). reflexivity. 
 Qed.
-    
+
 
 Global Opaque ConsNat. (* prevent the type checker from freezing *)
 Global Opaque TailNat.
